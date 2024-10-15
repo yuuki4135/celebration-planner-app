@@ -1,0 +1,32 @@
+name: firebase-ci-cd
+
+on: 
+  push:
+    branches: ['master']
+  workflow_dispatch:
+
+jobs:
+  firebase-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - name: Build
+        run: npm ci && npm run build
+        # env:
+        #   VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        #   VITE_SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
+      - name: test
+        run: npm run test
+      - name: Deploy
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CELEBRATION_PLANNER }}
+          channelId: live
+          projectId: celebration-planner
+
