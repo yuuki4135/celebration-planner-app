@@ -18,7 +18,7 @@ export const helloWorld = onRequest((request, response) => {
   response.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST'); // DELETEだけは拒否
   response.set('Access-Control-Allow-Headers', 'Content-Type'); 
   logger.info("Hello logs!", {structuredData: true});
-  response.send("Hello from Firebase!");
+  response.json({ "data": "Hello from Firebase!" });
 });
 
 // require('dotenv').config();
