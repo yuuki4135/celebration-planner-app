@@ -3,7 +3,7 @@ import { Top } from './components/pages/top'
 import { BrowserRouter, Route, Routes, Link } from "react-router-dom";
 import { Profile } from './components/pages/profile';
 import { Login } from './components/pages/login';
-import Navbar  from './components/pages/templates/navbar';
+import Navbar  from './components/templates/navbar';
 
 export const App = () => {
   return (
