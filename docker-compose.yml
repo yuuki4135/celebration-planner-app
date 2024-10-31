@@ -1,0 +1,13 @@
+services:
+  web:
+    container_name: celebration-planner-app
+    build: ./
+    environment:
+      VITE_SUPABASE_KEY: ${SECRET_KEY_BASE}
+      VITE_SUPABASE_URL: ${SUPABASE_URL}
+    ports:
+      - 5173:5173
+    volumes:
+      - .:/home/node/app:cached
+    tty: true
+    stdin_open: true
