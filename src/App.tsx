@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Top } from './components/pages/top'
-import { BrowserRouter, Route, Routes, Link } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 export const App = () => {
   return (

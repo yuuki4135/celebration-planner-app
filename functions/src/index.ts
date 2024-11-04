@@ -5,6 +5,7 @@ import { Request, Response } from "express";
 require('dotenv').config();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const allowDomain = process.env.ALLOW_DOMAIN
 
 async function gemini(prompt: string){
   // For text-only input, use the gemini-pro model
@@ -22,12 +23,15 @@ const jsonReplace = (str: string) => {
 
 const createPrompt = (text: string, who: string, when: string | null): string => {
   const scheduleInstruction = when 
-    ? `日程は${when}の予定です。scheduleキーは空の配列[]を返してください。` 
-    : `日程は未定です。以下の形式で候補日を提案してください：
-       "schedule": [
-         { "date": "2024-05-01", "reason": "五月晴れで縁起が良い" },
-         { "date": "2024-05-03", "reason": "連休中で参加しやすい" }
-       ]`;
+  ? `日程は${when}の予定です。scheduleキーは空の配列[]を返してください。` 
+  : `日程は未定です。以下の期間で3～5個の候補日を提案してください：
+     - 開始日: ${new Date().toISOString().split('T')[0]}
+     - 終了日: ${new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+     
+     "schedule": [
+       { "date": "2024-05-01", "reason": "具体的な理由（季節/天候/暦/慣習など）" },
+       { "date": "2024-05-03", "reason": "具体的な理由（参加のしやすさ/意味など）" }
+     ]`;
 
   return `
   あなたは日本のお祝い事のプランニングエキスパートです。
@@ -69,6 +73,10 @@ const createPrompt = (text: string, who: string, when: string | null): string =>
   4. readyは具体的な準備項目を最低3つ以上列挙してください
   5. messageは100文字以上で具体的なアドバイスを含めてください
   6. エラーがない場合、errorはnullとしてください
+  7. eventsは最低3つ以上のイベントを提案してください
+  8. イベントの説明は具体的な内容と意味を含めてください
+  9. readyの準備項目は時系列順に並べてください
+  10. 予算や規模に応じた選択肢を含めてください
 
   例えば「結婚式」の場合：
   - ready: ["会場の下見", "招待状の準備", "衣装の選定"]のように具体的に
@@ -81,7 +89,7 @@ const createPrompt = (text: string, who: string, when: string | null): string =>
 
 
 export const AskCelebration = onRequest(async (request: Request, response: Response) => {
-  response.set('Access-Control-Allow-Origin', 'http://localhost:5173'); // localhostを許可
+  response.set('Access-Control-Allow-Origin', allowDomain); // localhostを許可
   response.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST'); // DELETEだけは拒否
   response.set('Access-Control-Allow-Headers', 'Content-Type'); 
   try {
@@ -109,7 +117,7 @@ export const AskCelebration = onRequest(async (request: Request, response: Respo
 });
 
 export const isCelebration = onRequest(async (request: Request, response: Response) => {
-  response.set('Access-Control-Allow-Origin', 'http://localhost:5173'); // localhostを許可
+  response.set('Access-Control-Allow-Origin', allowDomain); // localhostを許可
   response.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST'); // DELETEだけは拒否
   response.set('Access-Control-Allow-Headers', 'Content-Type'); 
   logger.info("Hello logs!", {structuredData: true});

@@ -1,38 +1,36 @@
 import * as React from 'react'
 
-type Params = {
-  text: string
-  who: string
-  when?: string
+interface ApiResponse {
+  message: string;
+  schedule: Schedule[];
+  ready: string[];
+  events: Event[];
+  error: string | null;
 }
 
-export const useGemini = () => {
-  const [answer, setAnswer] = React.useState<any>(null)
-  const [sending, setSending] = React.useState<boolean>(false)
-  const [checkCelebrationError, setCheckCelebrationError] = React.useState<boolean>(false)
+interface Schedule {
+  date: string;
+  reason: string;
+}
 
-  const askGemini = async (text: string, who: string, when: Date) => {
-    setSending(true)
-    const date = when ? new Date(when).toLocaleDateString('sv-SE') : null
-    const params: Params = { text: text, who: who }
-    if (date) params['when'] = date
-    const ex_query = new URLSearchParams(params)
-    fetch('https://helloworld-cti2s6vveq-uc.a.run.app?' + ex_query, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-    }).then(response => {
-      return response.json()
-    }).then(data => {
-      console.log(data)
-      setAnswer(data)
-    }).catch(error => {
-      console.error(error)
-    }).finally(() => {
-      setSending(false)
-    })
-  }
+interface Event {
+  name: string;
+  description: string;
+}
+
+interface FormInput {
+  text: string;
+  who: string;
+  when: string;
+}
+
+
+
+export const useGemini = () => {
+  const [checkCelebrationError, setCheckCelebrationError] = React.useState<boolean>(false)
+  const [response, setResponse] = React.useState<ApiResponse | null>(null);
+  const [isLoading, setIsLoading] = React.useState<boolean>(false);
+  const [showResults, setShowResults] = React.useState<boolean>(false);
 
   const checkCelebration = async (text: string) => {
     const ex_query = new URLSearchParams({ text: text })
@@ -50,11 +48,42 @@ export const useGemini = () => {
     })
   }
 
+  const fetchCelebrationPlan = async (formData: FormInput): Promise<ApiResponse> => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        text: formData.text,
+        who: formData.who,
+        ...(formData.when && { when: formData.when })
+      });
+
+      const response = await fetch(`https://askcelebration-cti2s6vveq-uc.a.run.app?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('APIリクエストに失敗しました');
+      }
+
+      const data: ApiResponse = await response.json();
+      if(formData.when != '') data.schedule = []
+      setResponse(data);
+      setShowResults(true);
+      return data;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
-    answer,
-    sending,
-    askGemini,
     checkCelebration,
-    checkCelebrationError
+    checkCelebrationError,
+    response,
+    isLoading,
+    showResults,
+    fetchCelebrationPlan
   }
 }

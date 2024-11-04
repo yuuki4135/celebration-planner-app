@@ -1,57 +1,5 @@
-// import * as React from 'react'
-// import { useForm, SubmitHandler } from "react-hook-form";
-// import { Box, Button, FormControl, FormLabel, Input, VStack, Text, Spinner, Center } from "@chakra-ui/react";
-// import { useGemini } from '@/_hooks/useGemini';
-
-// type FormData = {
-//   text: string;
-//   who: string;
-//   when: Date;
-// };
-  
-// export const Top: React.FC = () => {
-//   const { register, handleSubmit } = useForm<FormData>();
-//   const { answer, sending, askGemini, checkCelebration, checkCelebrationError } = useGemini();
-
-//   const onSubmit: SubmitHandler<FormData> = ({ text, who, when }) => {
-//     askGemini(text, who, when);
-//   };
-
-//   return (
-//     <Box p={4}>
-//       <h1>Top Page</h1>
-//       <VStack as="form" onSubmit={handleSubmit(onSubmit)} spacing={4} mt={4}>
-//         <FormControl id="text" isInvalid={checkCelebrationError}>
-//           <FormLabel>AIに問い合わせる</FormLabel>
-//           <Input type="text" {...register("text")} onBlur={ (e) => checkCelebration(e.target.value) } />
-//           {checkCelebrationError && <Text color="red.500">お祝い事を入力してください</Text>}
-//         </FormControl>
-//         <FormControl id="who">
-//           <FormLabel>誰のためのお祝い事か</FormLabel>
-//           <Input type="text" {...register("who")} />
-//         </FormControl>
-//         <FormControl id="when">
-//           <FormLabel>日程</FormLabel>
-//           <Input type="date" {...register("when")} />
-//         </FormControl>
-//         <Button type="submit" colorScheme="teal" isLoading={sending}>送信</Button>
-//       </VStack>
-//       {sending && (
-//         <Center mt={4}>
-//           <Spinner size="xl" color="teal.500" />
-//         </Center>
-//       )}
-//       {answer && (
-//         <Box mt={4} p={4} borderWidth="1px" borderRadius="lg">
-//           <Text>回答:</Text>
-//           <Text>{answer.recipe_name}</Text>
-//         </Box>
-//       )}
-//     </Box>
-//   )
-// }
-
-import React, { useState } from 'react';
+import * as React from 'react'
+import { useForm, SubmitHandler } from "react-hook-form";
 import {
   Box,
   Container,
@@ -69,32 +17,13 @@ import {
   Card,
   CardHeader,
   CardBody,
-  Flex,
   useToast,
   FormControl,
   FormLabel,
   Stack
 } from '@chakra-ui/react';
 import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon } from '@chakra-ui/icons';
-
-// APIレスポンスの型定義
-interface Schedule {
-  date: string;
-  reason: string;
-}
-
-interface Event {
-  name: string;
-  description: string;
-}
-
-interface ApiResponse {
-  message: string;
-  schedule: Schedule[];
-  ready: string[];
-  events: Event[];
-  error: string | null;
-}
+import { useGemini } from '@/_hooks/useGemini';
 
 // フォーム入力の型定義
 interface FormInput {
@@ -104,78 +33,34 @@ interface FormInput {
 }
 
 export const Top: React.FC = () => {
-  // ステート管理
-  const [formData, setFormData] = useState<FormInput>({
-    text: '',
-    who: '',
-    when: ''
-  });
-  const [response, setResponse] = useState<ApiResponse | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [showResults, setShowResults] = useState<boolean>(false);
-
+  const { register, handleSubmit, watch } = useForm<FormInput>();
+  const { fetchCelebrationPlan, isLoading, showResults, response } = useGemini();
   const toast = useToast();
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const inputDate = watch("when")
 
-  // 入力変更ハンドラー
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // API呼び出し
-  const fetchCelebrationPlan = async (): Promise<void> => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        text: formData.text,
-        who: formData.who,
-        ...(formData.when && { when: formData.when })
-      });
-
-      const response = await fetch(`https://askcelebration-cti2s6vveq-uc.a.run.app?${params}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('APIリクエストに失敗しました');
-      }
-
-      const data: ApiResponse = await response.json();
-      setResponse(data);
-      setShowResults(true);
-      
-      if (data.error) {
+  const onSubmit: SubmitHandler<FormInput> = async (data) => {
+    try{
+      const response = await fetchCelebrationPlan(data);
+      if (response.error) {
         toast({
           title: 'エラーが発生しました',
-          description: data.error,
+          description: response.error,
           status: 'error',
           duration: 5000,
           isClosable: true,
         });
       }
     } catch (error) {
+      console.error(error);
       toast({
         title: 'エラーが発生しました',
-        description: error instanceof Error ? error.message : '予期せぬエラーが発生しました',
+        description: '予期せぬエラーが発生しました。しばらくしてから再度お試しください。',
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
-
-  const handleSubmit = (e: React.FormEvent): void => {
-    e.preventDefault();
-    fetchCelebrationPlan();
   };
 
   return (
@@ -188,15 +73,13 @@ export const Top: React.FC = () => {
 
         <Card w="full" variant="outline" borderColor={borderColor}>
           <CardBody>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit(onSubmit)}>
               <Stack spacing={4}>
                 <FormControl isRequired>
                   <FormLabel>お祝い事の種類</FormLabel>
                   <Input
-                    name="text"
+                    {...register("text", { required: true } ) }
                     placeholder="例: 結婚式、誕生日、出産祝い"
-                    value={formData.text}
-                    onChange={handleInputChange}
                     size="lg"
                   />
                 </FormControl>
@@ -204,10 +87,8 @@ export const Top: React.FC = () => {
                 <FormControl isRequired>
                   <FormLabel>誰のためのお祝い？</FormLabel>
                   <Input
-                    name="who"
                     placeholder="例: 娘、息子、友人"
-                    value={formData.who}
-                    onChange={handleInputChange}
+                    {...register("who", { required: true } ) }
                     size="lg"
                   />
                 </FormControl>
@@ -215,10 +96,8 @@ export const Top: React.FC = () => {
                 <FormControl>
                   <FormLabel>予定日（任意）</FormLabel>
                   <Input
-                    name="when"
                     type="date"
-                    value={formData.when}
-                    onChange={handleInputChange}
+                    {...register("when") }
                     size="lg"
                   />
                 </FormControl>
@@ -312,7 +191,7 @@ export const Top: React.FC = () => {
                         ))}
                       </List>
                     ) : (
-                      <Text>{formData.when ? `${formData.when}に予定されています` : "日程は未定です"}</Text>
+                      <Text>{inputDate ? `${inputDate}に予定されています` : "日程は未定です"}</Text>
                     )}
                   </CardBody>
                 </Card>
