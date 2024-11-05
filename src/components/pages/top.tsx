@@ -20,7 +20,16 @@ import {
   useToast,
   FormControl,
   FormLabel,
-  Stack
+  Stack,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  useDisclosure,
+  Tooltip,
 } from '@chakra-ui/react';
 import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon } from '@chakra-ui/icons';
 import { useGemini } from '@/_hooks/useGemini';
@@ -38,6 +47,17 @@ export const Top: React.FC = () => {
   const toast = useToast();
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const inputDate = watch("when")
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [selectedItem, setSelectedItem] = React.useState<{ name: string; detail: string } | null>(null);
+
+  const handleItemClick = (item: string) => {
+    // 実際のアプリケーションでは、この詳細情報はAPIレスポンスに含まれる想定です
+    setSelectedItem({
+      name: item,
+      detail: `${item}についての詳細な説明がここに表示されます。必要な個数や購入場所の候補なども含まれます。`
+    });
+    onOpen();
+  };
 
   const onSubmit: SubmitHandler<FormInput> = async (data) => {
     try{
@@ -159,10 +179,22 @@ export const Top: React.FC = () => {
                   <CardBody>
                     <List spacing={3}>
                       {response.items?.map((item, index) => (
-                        <ListItem key={index} display="flex" alignItems="center">
-                          <ListIcon as={CheckCircleIcon} color="orange.500" />
-                          {item}
-                        </ListItem>
+                        <Tooltip 
+                          key={index}
+                          label="クリックして詳しく見る"
+                          placement="top-start"
+                        >
+                          <ListItem 
+                            display="flex" 
+                            alignItems="center"
+                            cursor="pointer"
+                            onClick={() => handleItemClick(item)}
+                            _hover={{ color: 'blue.500' }}
+                          >
+                            <ListIcon as={CheckCircleIcon} color="orange.500" />
+                            {item}
+                          </ListItem>
+                        </Tooltip>
                       ))}
                     </List>
                   </CardBody>
@@ -219,6 +251,22 @@ export const Top: React.FC = () => {
           )}
         </Fade>
       </VStack>
+
+      <Modal isOpen={isOpen} onClose={onClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{selectedItem?.name}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text>{selectedItem?.detail}</Text>
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" onClick={onClose}>
+              閉じる
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Container>
   );
 };
