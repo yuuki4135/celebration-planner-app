@@ -5,6 +5,7 @@ interface ApiResponse {
   schedule: Schedule[];
   ready: string[];
   events: Event[];
+  items: string[];
   error: string | null;
 }
 
@@ -23,8 +24,6 @@ interface FormInput {
   who: string;
   when: string;
 }
-
-
 
 export const useGemini = () => {
   const [checkCelebrationError, setCheckCelebrationError] = React.useState<boolean>(false)

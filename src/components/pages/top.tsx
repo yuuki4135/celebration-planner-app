@@ -129,7 +129,7 @@ export const Top: React.FC = () => {
                 </CardBody>
               </Card>
 
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6} w="full">
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} w="full">
                 <Card variant="outline" borderColor={borderColor} h="full">
                   <CardHeader>
                     <Heading size="md" display="flex" alignItems="center">
@@ -142,6 +142,25 @@ export const Top: React.FC = () => {
                       {response.ready.map((item, index) => (
                         <ListItem key={index} display="flex" alignItems="center">
                           <ListIcon as={CheckCircleIcon} color="green.500" />
+                          {item}
+                        </ListItem>
+                      ))}
+                    </List>
+                  </CardBody>
+                </Card>
+
+                <Card variant="outline" borderColor={borderColor} h="full">
+                  <CardHeader>
+                    <Heading size="md" display="flex" alignItems="center">
+                      <CheckCircleIcon mr={2} color="orange.500" />
+                      準備物リスト
+                    </Heading>
+                  </CardHeader>
+                  <CardBody>
+                    <List spacing={3}>
+                      {response.items?.map((item, index) => (
+                        <ListItem key={index} display="flex" alignItems="center">
+                          <ListIcon as={CheckCircleIcon} color="orange.500" />
                           {item}
                         </ListItem>
                       ))}
