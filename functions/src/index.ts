@@ -35,7 +35,7 @@ const createPrompt = (text: string, who: string, when: string | null): string =>
 
   return `
   あなたは日本のお祝い事のプランニングエキスパートです。
-  お祝い事「${text}」の準備プランを提案してください。
+  ��祝い事「${text}」の準備プランを提案してください。
   ${who}のお祝いに参加する自分の立場に立って準備物やイベントを提案してください。
 
   ${scheduleInstruction}
@@ -80,7 +80,7 @@ const createPrompt = (text: string, who: string, when: string | null): string =>
   6. itemsは具体的な準備物で考えられるものを全て列挙してください。最低5つ以上
   7. messageは100文字以上で具体的なアドバイスを含めてください
   8. エラーがない場合、errorはnullとしてください
-  9. eventsは最低3つ以上のイベントを提案してください
+  9. eventsは最低3つ以上のイベントを提��してください
   10. イベントの説明は具体的な内容と意味を含めてください
   11. readyの準備項目は時系列順に並べてください 
 
@@ -137,3 +137,61 @@ export const isCelebration = onRequest(async (request: Request, response: Respon
   const decoded = jsonReplace(result);
   response.send(decoded);
 })
+
+export const itemsDetail = onRequest(async (request: Request, response: Response) => {
+  response.set('Access-Control-Allow-Origin', allowDomain);
+  response.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST');
+  response.set('Access-Control-Allow-Headers', 'Content-Type'); 
+
+  try {
+    const text = String(request.query.text) || '';
+    const prompt = `
+    あなたはお祝い事の準備アドバイザーです。${text}に必要な準備物について、詳細な情報を提供してください。
+
+    以下の形式でJSON形式の返答のみを返してください：
+
+    {
+      "categories": [
+        {
+          "name": "カテゴリ名（例：贈り物、装飾品、飲食物など）",
+          "items": [
+            {
+              "name": "準備物の名称",
+              "description": "詳細な説明",
+              "importance": "必須 | 推奨 | オプション",
+              "estimated_budget": "予算目安（円）",
+              "when_to_prepare": "購入・準備時期の目安",
+              "notes": "購入時の注意点や選び方のコツ"
+            }
+          ]
+        }
+      ],
+      "total_budget_estimate": "合計予算目安（円）",
+      "error": null
+    }
+
+    注意事項：
+    1. 各カテゴリに最低3つ以上のアイテムを含めてください
+    2. 予算は具体的な金額で示してください
+    3. 準備時期は具体的な日数や期間で示してください
+    4. 説明は100文字以上で具体的に記載してください
+    `;
+
+    const result = await gemini(prompt);
+    const decoded = jsonReplace(result);
+    const parsed = JSON.parse(decoded);
+
+    // バリデーション
+    if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
+      throw new Error("Invalid response format");
+    }
+
+    response.send(decoded);
+  } catch (error: any) {
+    response.send(JSON.stringify({
+      categories: [],
+      total_budget_estimate: 0,
+      error: error.message
+    }));
+  }
+});

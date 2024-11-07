@@ -77,12 +77,26 @@ export const useGemini = () => {
     }
   };
 
+  const fetchItemDetail = async (text: string) => {
+    try {
+      const response = await fetch(
+        `https://itemsdetail-cti2s6vveq-uc.a.run.app?text=${encodeURIComponent(text)}`
+      );
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching item details:', error);
+      throw error;
+    }
+  }
+
   return {
     checkCelebration,
     checkCelebrationError,
     response,
     isLoading,
     showResults,
-    fetchCelebrationPlan
+    fetchCelebrationPlan,
+    fetchItemDetail,
   }
 }
