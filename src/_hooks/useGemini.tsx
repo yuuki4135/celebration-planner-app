@@ -4,7 +4,7 @@ interface ApiResponse {
   message: string;
   schedule: Schedule[];
   ready: string[];
-  events: Event[];
+  events: string[]; // 文字列の配列に変更
   items: string[];
   error: string | null;
 }
@@ -14,15 +14,66 @@ interface Schedule {
   reason: string;
 }
 
-interface Event {
-  name: string;
-  description: string;
-}
-
 interface FormInput {
   text: string;
   who: string;
   when: string;
+}
+
+interface ItemDetail {
+  name: string;
+  description: string;
+  estimated_budget: string;
+  when_to_prepare: string;
+  notes: string;
+  recommendations: string; // 運気やおすすめポイントを追加
+}
+
+interface EventDetail {
+  name: string;
+  description: string;
+  cultural_significance: string;
+  recommended_dates: Array<{
+    date: string;
+    time_slots: Array<{
+      start_time: string;
+      end_time: string;
+      reason: string;
+    }>;
+    reason: string;
+    is_holiday: boolean;
+    considerations: string;
+  }>;
+  venue_suggestions: Array<{
+    type: string;
+    recommendations: string[];
+    considerations: string;
+  }>;
+  estimated_budget: {
+    min: string;
+    max: string;
+    breakdown: Array<{
+      item: string;
+      amount: string;
+    }>;
+  };
+  required_preparations: Array<{
+    task: string;
+    timeline: string;
+    details: string;
+  }>;
+  participants: {
+    required: string[];
+    optional: string[];
+    roles: Array<{
+      role: string;
+      responsibility: string;
+    }>;
+  };
+  customs_and_etiquette: Array<{
+    custom: string;
+    description: string;
+  }>;
 }
 
 export const useGemini = () => {
@@ -33,7 +84,7 @@ export const useGemini = () => {
 
   const checkCelebration = async (text: string) => {
     const ex_query = new URLSearchParams({ text: text })
-    fetch('https://iscelebration-cti2s6vveq-uc.a.run.app?' + ex_query, {
+    fetch('https://iscelebration-cti2s6vveq-an.a.run.app?' + ex_query, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -56,7 +107,7 @@ export const useGemini = () => {
         ...(formData.when && { when: formData.when })
       });
 
-      const response = await fetch(`https://askcelebration-cti2s6vveq-uc.a.run.app?${params}`, {
+      const response = await fetch(`https://askcelebration-cti2s6vveq-an.a.run.app?${params}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -77,15 +128,33 @@ export const useGemini = () => {
     }
   };
 
-  const fetchItemDetail = async (text: string) => {
+  const fetchItemDetail = async (inputCelebration: string, text: string) => {
     try {
+      const params = new URLSearchParams({ celebration: inputCelebration, text: text });
       const response = await fetch(
-        `https://itemsdetail-cti2s6vveq-uc.a.run.app?text=${encodeURIComponent(text)}`
+        `https://itemsdetail-cti2s6vveq-an.a.run.app?${params}`,
       );
       const data = await response.json();
       return data;
     } catch (error) {
       console.error('Error fetching item details:', error);
+      throw error;
+    }
+  }
+
+  const fetchEventDetail = async (celebration: string, eventName: string) => {
+    try {
+      const params = new URLSearchParams({ 
+        celebration: celebration,
+        event: eventName
+      });
+      const response = await fetch(
+        `https://eventdetail-cti2s6vveq-an.a.run.app?${params}`,
+      );
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching event details:', error);
       throw error;
     }
   }
@@ -98,5 +167,6 @@ export const useGemini = () => {
     showResults,
     fetchCelebrationPlan,
     fetchItemDetail,
+    fetchEventDetail,
   }
 }

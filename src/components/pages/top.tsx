@@ -30,9 +30,14 @@ import {
   ModalCloseButton,
   useDisclosure,
   Tooltip,
+  Spinner,
+  HStack,
+  IconButton,
+  Badge
 } from '@chakra-ui/react';
 import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon } from '@chakra-ui/icons';
 import { useGemini } from '@/_hooks/useGemini';
+import { createGoogleCalendarUrl, createYahooCalendarUrl } from '@/utils/calendar';
 
 interface ItemDetail {
   name: string;
@@ -41,6 +46,13 @@ interface ItemDetail {
   estimated_budget: string;
   when_to_prepare: string;
   notes: string;
+  recommendations: string;
+}
+
+interface EventDetail {
+  description: string;
+  cultural_significance: string;
+  recommended_dates: Array<{ date: string; reason: string }>;
 }
 
 // フォーム入力の型定義
@@ -52,12 +64,13 @@ interface FormInput {
 
 export const Top: React.FC = () => {
   const { register, handleSubmit, watch } = useForm<FormInput>();
-  const { fetchCelebrationPlan, isLoading, showResults, response, fetchItemDetail } = useGemini();
+  const { fetchCelebrationPlan, isLoading, showResults, response, fetchItemDetail, fetchEventDetail } = useGemini();
   const toast = useToast();
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const inputDate = watch("when")
+  const inputCelebration = watch("text")
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [selectedItem, setSelectedItem] = React.useState<{ name: string; detail: string } | null>(null);
+  const [selectedItem, setSelectedItem] = React.useState<string | null>(null);
   const [itemDetails, setItemDetails] = React.useState<{
     categories: Array<{
       name: string;
@@ -67,12 +80,23 @@ export const Top: React.FC = () => {
   } | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = React.useState(false);
 
+  const [selectedEvent, setSelectedEvent] = React.useState<string | null>(null);
+  const [eventDetails, setEventDetails] = React.useState<EventDetail | null>(null);
+  const [isLoadingEventDetails, setIsLoadingEventDetails] = React.useState(false);
+  const {
+    isOpen: isEventModalOpen,
+    onOpen: onEventModalOpen,
+    onClose: onEventModalClose
+  } = useDisclosure();
+
   const handleItemClick = async (item: string) => {
+    setSelectedItem(item);
+    setIsLoadingDetails(true);
+    onOpen(); // 先にモーダルを開く
+    
     try {
-      setIsLoadingDetails(true);
-      const details = await fetchItemDetail(item);
+      const details = await fetchItemDetail(inputCelebration, item);
       setItemDetails(details);
-      onOpen();
     } catch (error) {
       toast({
         title: 'エラーが発生しました',
@@ -80,9 +104,33 @@ export const Top: React.FC = () => {
         status: 'error',
         duration: 5000,
         isClosable: true,
+        position: 'top-right',
       });
+      onClose(); // エラー時はモーダルを閉じる
     } finally {
       setIsLoadingDetails(false);
+    }
+  };
+
+  const handleEventClick = async (eventName: string) => {
+    setSelectedEvent(eventName);
+    setIsLoadingEventDetails(true);
+    onEventModalOpen(); // 先にモーダルを開く
+    
+    try {
+      const details = await fetchEventDetail(inputCelebration, eventName);
+      setEventDetails(details.eventDetails);
+    } catch (error) {
+      toast({
+        title: 'エラーが発生しました',
+        description: 'イベント詳細の取得に失敗しました',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      onEventModalClose(); // エラー時はモーダルを閉じる
+    } finally {
+      setIsLoadingEventDetails(false);
     }
   };
 
@@ -237,13 +285,22 @@ export const Top: React.FC = () => {
                   <CardBody>
                     <List spacing={3}>
                       {response.events.map((event, index) => (
-                        <ListItem key={index}>
-                          <Text fontWeight="bold" display="flex" alignItems="center">
+                        <Tooltip 
+                          key={index}
+                          label="クリックして詳しく見る"
+                          placement="top-start"
+                        >
+                          <ListItem 
+                            cursor="pointer"
+                            onClick={() => handleEventClick(event)}
+                            _hover={{ color: 'blue.500' }}
+                            display="flex"
+                            alignItems="center"
+                          >
                             <CalendarIcon mr={2} color="purple.500" />
-                            {event.name}
-                          </Text>
-                          <Text ml={6}>{event.description}</Text>
-                        </ListItem>
+                            <Text>{event}</Text>
+                          </ListItem>
+                        </Tooltip>
                       ))}
                     </List>
                   </CardBody>
@@ -260,11 +317,51 @@ export const Top: React.FC = () => {
                     {response.schedule.length > 0 ? (
                       <List spacing={3}>
                         {response.schedule.map((schedule, index) => (
-                          <ListItem key={index}>
-                            <Text fontWeight="bold">
-                              {new Date(schedule.date).toLocaleDateString('ja-JP')}
-                            </Text>
-                            <Text ml={6}>{schedule.reason}</Text>
+                          <ListItem key={index} p={3} borderWidth="1px" borderRadius="md">
+                            <HStack justify="space-between" align="flex-start">
+                              <VStack align="start" spacing={1}>
+                                <Text fontWeight="bold">
+                                  {new Date(schedule.date).toLocaleDateString('ja-JP')}
+                                </Text>
+                                <Text>{schedule.reason}</Text>
+                              </VStack>
+                              <HStack spacing={2}>
+                                <Tooltip label="Googleカレンダーに追加">
+                                  <IconButton
+                                    aria-label="Googleカレンダーに追加"
+                                    icon={<CalendarIcon />}
+                                    size="sm"
+                                    colorScheme="blue"
+                                    variant="ghost"
+                                    as="a"
+                                    href={createGoogleCalendarUrl(
+                                      inputCelebration,
+                                      schedule.reason,
+                                      schedule.date
+                                    )}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  />
+                                </Tooltip>
+                                <Tooltip label="Yahooカレンダーに追加">
+                                  <IconButton
+                                    aria-label="Yahooカレンダーに追加"
+                                    icon={<CalendarIcon />}
+                                    size="sm"
+                                    colorScheme="purple"
+                                    variant="ghost"
+                                    as="a"
+                                    href={createYahooCalendarUrl(
+                                      inputCelebration,
+                                      schedule.reason,
+                                      schedule.date
+                                    )}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  />
+                                </Tooltip>
+                              </HStack>
+                            </HStack>
                           </ListItem>
                         ))}
                       </List>
@@ -279,49 +376,204 @@ export const Top: React.FC = () => {
         </Fade>
       </VStack>
 
-      <Modal isOpen={isOpen} onClose={onClose} size="xl">
+      <Modal
+        closeOnOverlayClick={false}
+        isOpen={isOpen} 
+        onClose={() => {
+          onClose();
+          setSelectedItem(null);
+          setItemDetails(null);
+        }} 
+        size="xl"
+      >
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>準備物の詳細情報</ModalHeader>
+          <ModalHeader>
+            {selectedItem && `${selectedItem}の詳細情報`}
+          </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {isLoadingDetails ? (
-              <Text>読み込み中...</Text>
-            ) : itemDetails ? (
-              <VStack spacing={4} align="stretch">
+              <VStack py={8} spacing={4}>
+                <Spinner size="xl" color="blue.500" />
+                <Text>詳細情報を取得中...</Text>
+              </VStack>
+            ) : itemDetails && (
+              <VStack spacing={6} align="stretch">
                 {itemDetails.categories.map((category, idx) => (
                   <Box key={idx}>
-                    <Heading size="md" mb={3}>{category.name}</Heading>
+                    <Heading size="md" mb={4}>{category.name}</Heading>
                     {category.items.map((item, itemIdx) => (
-                      <Card key={itemIdx} mb={3} variant="outline">
+                      <Card key={itemIdx} mb={4}>
                         <CardBody>
-                          <VStack align="start" spacing={2}>
-                            <Heading size="sm">{item.name}</Heading>
+                          <VStack align="stretch" spacing={3}>
+                            <Text><strong>{item.name}</strong></Text>
                             <Text>{item.description}</Text>
-                            <Stack direction={['column', 'row']} spacing={4}>
-                              <Text><strong>重要度:</strong> {item.importance}</Text>
-                              <Text><strong>予算目安:</strong> {item.estimated_budget}</Text>
-                            </Stack>
-                            <Text><strong>準備時期:</strong> {item.when_to_prepare}</Text>
-                            <Text><strong>注意点:</strong> {item.notes}</Text>
+                            <SimpleGrid columns={2} spacing={4}>
+                              <Box>
+                                <Text fontWeight="bold">予算目安:</Text>
+                                <Text>{item.estimated_budget}</Text>
+                              </Box>
+                              <Box>
+                                <Text fontWeight="bold">準備時期:</Text>
+                                <Text>{item.when_to_prepare}</Text>
+                              </Box>
+                            </SimpleGrid>
+                            <Box>
+                              <Text fontWeight="bold">選び方のコツ・注意点:</Text>
+                              <Text>{item.notes}</Text>
+                            </Box>
+                            <Box>
+                              <Text fontWeight="bold">🎯 おすすめポイント・運気アップ:</Text>
+                              <Text>{item.recommendations}</Text>
+                            </Box>
                           </VStack>
                         </CardBody>
                       </Card>
                     ))}
                   </Box>
                 ))}
-                <Box borderTop="1px" borderColor="gray.200" pt={4}>
-                  <Text fontWeight="bold">
-                    予算目安（合計）: {itemDetails.total_budget_estimate}
-                  </Text>
+                <Box borderTop="1px" borderColor={borderColor} pt={4}>
+                  <Text fontWeight="bold">合計予算目安:</Text>
+                  <Text>{itemDetails.total_budget_estimate}</Text>
                 </Box>
               </VStack>
-            ) : (
-              <Text>詳細情報を取得できませんでした</Text>
             )}
           </ModalBody>
           <ModalFooter>
             <Button colorScheme="blue" onClick={onClose}>
+              閉じる
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal 
+        isOpen={isEventModalOpen} 
+        onClose={() => {
+          onEventModalClose();
+          setSelectedEvent(null);
+          setEventDetails(null);
+        }}
+        size="xl"
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            {selectedEvent && `${selectedEvent}の詳細情報`}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {isLoadingEventDetails ? (
+              <VStack py={8} spacing={4}>
+                <Spinner size="xl" color="blue.500" />
+                <Text>詳細情報を取得中...</Text>
+              </VStack>
+            ) : eventDetails && (
+              <VStack spacing={6} align="stretch">
+                <Box>
+                  <Heading size="sm">イベントの説明</Heading>
+                  <Text mt={2}>{eventDetails.description}</Text>
+                </Box>
+                <Box>
+                  <Heading size="sm">文化的な意義</Heading>
+                  <Text mt={2}>{eventDetails.cultural_significance}</Text>
+                </Box>
+                <Box>
+                  <Heading size="sm">推奨日程</Heading>
+                  <List spacing={2} mt={2}>
+                    {eventDetails.recommended_dates.map((date: { date: string; reason: string }, idx: number) => (
+                      <ListItem key={idx} p={3} borderWidth="1px" borderRadius="md">
+                        <VStack align="stretch" spacing={3}>
+                          <HStack justify="space-between" align="flex-start">
+                            <VStack align="start" spacing={1}>
+                              <Text fontWeight="bold">
+                                {new Date(date.date).toLocaleDateString('ja-JP', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  weekday: 'long'
+                                })}
+                                {date.is_holiday && 
+                                  <Badge ml={2} colorScheme="red">休日</Badge>
+                                }
+                              </Text>
+                              <Text>{date.reason}</Text>
+                              <Text fontSize="sm" color="gray.600">{date.considerations}</Text>
+                            </VStack>
+                            <HStack spacing={2}>
+                              <Tooltip label="Googleカレンダー��追加">
+                                <IconButton
+                                  aria-label="Googleカレンダーに追加"
+                                  icon={<CalendarIcon />}
+                                  size="sm"
+                                  colorScheme="blue"
+                                  variant="ghost"
+                                  as="a"
+                                  href={createGoogleCalendarUrl(
+                                    selectedEvent || '',
+                                    `${date.reason}\n${date.considerations}`,
+                                    date.date,
+                                    date.time_slots[0]?.start_time,
+                                    date.time_slots[0]?.end_time,
+                                  )}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                />
+                              </Tooltip>
+                              <Tooltip label="Yahooカレンダーに追加">
+                                <IconButton
+                                  aria-label="Yahooカレンダーに追加"
+                                  icon={<CalendarIcon />}
+                                  size="sm"
+                                  colorScheme="purple"
+                                  variant="ghost"
+                                  as="a"
+                                  href={createYahooCalendarUrl(
+                                    selectedEvent || '',
+                                    `${date.reason}\n${date.considerations}`,
+                                    date.date,
+                                    date.time_slots[0]?.start_time,
+                                    date.time_slots[0]?.end_time,
+                                  )}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                />
+                              </Tooltip>
+                            </HStack>
+                          </HStack>
+
+                          <Box pl={4}>
+                            <Text fontWeight="bold" mb={2}>推奨時間帯:</Text>
+                            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                              {date.time_slots.map((slot, slotIdx) => (
+                                <Box 
+                                  key={slotIdx} 
+                                  p={2} 
+                                  bg="gray.50" 
+                                  borderRadius="md"
+                                >
+                                  <Text fontWeight="semibold">
+                                    {slot.start_time} 〜 {slot.end_time}
+                                  </Text>
+                                  <Text fontSize="sm" color="gray.600">
+                                    {slot.reason}
+                                  </Text>
+                                </Box>
+                              ))}
+                            </SimpleGrid>
+                          </Box>
+                        </VStack>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+                {/* 他の詳細情報も同様に表示 */}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" onClick={onEventModalClose}>
               閉じる
             </Button>
           </ModalFooter>
