@@ -49,10 +49,24 @@ interface ItemDetail {
   recommendations: string;
 }
 
+interface TimeSlot {
+  start_time: string;
+  end_time: string;
+  reason: string;
+}
+
+interface RecommendedDate {
+  date: string;
+  reason: string;
+  considerations?: string;
+  is_holiday?: boolean;
+  time_slots: TimeSlot[];
+}
+
 interface EventDetail {
   description: string;
   cultural_significance: string;
-  recommended_dates: Array<{ date: string; reason: string }>;
+  recommended_dates: RecommendedDate[];
 }
 
 // フォーム入力の型定義
@@ -318,14 +332,12 @@ export const Top: React.FC = () => {
                       <List spacing={3}>
                         {response.schedule.map((schedule, index) => (
                           <ListItem key={index} p={3} borderWidth="1px" borderRadius="md">
-                            <HStack justify="space-between" align="flex-start">
-                              <VStack align="start" spacing={1}>
-                                <Text fontWeight="bold">
-                                  {new Date(schedule.date).toLocaleDateString('ja-JP')}
-                                </Text>
-                                <Text>{schedule.reason}</Text>
-                              </VStack>
-                              <HStack spacing={2}>
+                            <VStack align="stretch" spacing={2}>
+                              <Text fontWeight="bold">
+                                {new Date(schedule.date).toLocaleDateString('ja-JP')}
+                              </Text>
+                              <Text>{schedule.reason}</Text>
+                              <HStack spacing={2} justify="flex-end">
                                 <Tooltip label="Googleカレンダーに追加">
                                   <IconButton
                                     aria-label="Googleカレンダーに追加"
@@ -361,7 +373,7 @@ export const Top: React.FC = () => {
                                   />
                                 </Tooltip>
                               </HStack>
-                            </HStack>
+                            </VStack>
                           </ListItem>
                         ))}
                       </List>
@@ -482,7 +494,7 @@ export const Top: React.FC = () => {
                 <Box>
                   <Heading size="sm">推奨日程</Heading>
                   <List spacing={2} mt={2}>
-                    {eventDetails.recommended_dates.map((date: { date: string; reason: string }, idx: number) => (
+                    {eventDetails.recommended_dates.map((date: RecommendedDate, idx: number) => (
                       <ListItem key={idx} p={3} borderWidth="1px" borderRadius="md">
                         <VStack align="stretch" spacing={3}>
                           <HStack justify="space-between" align="flex-start">
@@ -502,7 +514,7 @@ export const Top: React.FC = () => {
                               <Text fontSize="sm" color="gray.600">{date.considerations}</Text>
                             </VStack>
                             <HStack spacing={2}>
-                              <Tooltip label="Googleカレンダー��追加">
+                              <Tooltip label="Googleカレンダーに追加">
                                 <IconButton
                                   aria-label="Googleカレンダーに追加"
                                   icon={<CalendarIcon />}
