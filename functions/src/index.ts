@@ -172,7 +172,7 @@ const createPrompt = (text: string, who: string, when: string | null, weatherDat
 
   例えば「結婚式」の場合：
   - ready: ["会場の下見", "招待状の準備", "衣装の選定"]のように具体的に
-  - items: 必要な準備物を具体的に列挙���身に着けるもの・持っていくもの・事前に準備するもの全てを含める
+  - items: 必要な準備物を具体的に列挙�����身に着けるもの・持っていくもの・事前に準備するもの全てを含める
   - events: ["結納", "前撮り", "披露宴", "二次会"]のようにイベント名のみを列挙
   - schedule: 日取りの候補と理由を明確に
   - message: お祝いの意味や準備のポイントを具体的に
@@ -392,7 +392,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
               {
                 "start_time": "10:00",
                 "end_time": "12:00",
-                "reason": "この時間帯を推奨する理由（混雑状況/気温/光の具合/慣習など）"
+                "reason": "この時間帯を��奨する理由（混雑状況/気温/光の具合/慣習など）"
               }
             ],
             "reason": "この日程を推奨する理由（季節/気候/意味/参加のしやすさなど）",
@@ -490,7 +490,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
               {
                 start_time: "10:00",
                 end_time: "12:00",
-                reason: "午前中の時間帯で比較的参加しやすい時間"
+                reason: "午前中の時間帯で比較的参加しやすい時���"
               },
               {
                 start_time: "14:00",
@@ -566,6 +566,60 @@ export const readyDetail = onRequest(async (request: Request, response: Response
   } catch (error: any) {
     response.send(JSON.stringify({
       error: error.message
+    }));
+  }
+});
+
+// 楽天APIの型定義
+interface RakutenItem {
+  itemName: string;
+  itemPrice: number;
+  itemUrl: string;
+  imageUrl: string;
+  shopName: string;
+  reviewAverage: number;
+}
+
+export const searchRelatedItems = onRequest(async (request: Request, response: Response) => {
+  response.set('Access-Control-Allow-Origin', allowDomain);
+  response.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST');
+  response.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  try {
+    const keyword = String(request.query.keyword) || '';
+    const RAKUTEN_APP_ID = process.env.RAKUTEN_APP_ID;
+
+    const params = new URLSearchParams({
+      applicationId: RAKUTEN_APP_ID!,
+      keyword: keyword,
+      hits: '20',
+      sort: '+reviewCount'
+    });
+
+    const rakutenResponse = await fetch(
+      `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?${params}`,
+      {
+        method: 'GET',
+      }
+    );
+
+    const data = await rakutenResponse.json();
+    
+    // レスポンスデータの整形
+    const items: RakutenItem[] = data.Items.map((item: any) => ({
+      itemName: item.Item.itemName,
+      itemPrice: item.Item.itemPrice,
+      itemUrl: item.Item.itemUrl,
+      imageUrl: item.Item.mediumImageUrls[0].imageUrl,
+      shopName: item.Item.shopName,
+      reviewAverage: item.Item.reviewAverage
+    }));
+
+    response.send(JSON.stringify({ items }));
+  } catch (error: any) {
+    response.send(JSON.stringify({
+      error: error.message,
+      items: []
     }));
   }
 });

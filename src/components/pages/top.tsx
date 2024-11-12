@@ -34,9 +34,10 @@ import {
   HStack,
   IconButton,
   Badge,
-  Select
+  Select,
+  Image
 } from '@chakra-ui/react';
-import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon } from '@chakra-ui/icons';
+import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from '@chakra-ui/icons';
 import { useGemini } from '@/_hooks/useGemini';
 import { createGoogleCalendarUrl, createYahooCalendarUrl } from '@/utils/calendar';
 import { PREFECTURES } from '@/constants/prefectures';
@@ -82,7 +83,7 @@ interface FormInput {
 
 export const Top: React.FC = () => {
   const { register, handleSubmit, watch } = useForm<FormInput>();
-  const { fetchCelebrationPlan, isLoading, showResults, response, fetchItemDetail, fetchEventDetail, fetchReadyDetail } = useGemini();
+  const { fetchCelebrationPlan, isLoading, showResults, response, fetchItemDetail, fetchEventDetail, fetchReadyDetail, fetchRelatedItems } = useGemini();
   const toast = useToast();
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const inputDate = watch("when")
@@ -131,26 +132,78 @@ export const Top: React.FC = () => {
     onClose: onReadyModalClose
   } = useDisclosure();
 
-  const handleItemClick = async (item: string) => {
-    setSelectedItem(item);
-    setIsLoadingDetails(true);
-    onOpen(); // 先にモーダルを開く
-    
+  const [relatedItems, setRelatedItems] = React.useState<Array<{
+    itemName: string;
+    itemPrice: number;
+    itemUrl: string;
+    imageUrl: string;
+    shopName: string;
+    reviewAverage: number;
+  }>>([]);
+  const [isLoadingItems, setIsLoadingItems] = React.useState(false);
+  const mainSliderRef = React.useRef<HTMLDivElement>(null);
+  const itemSliderRefs = React.useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // 特定のアイテムに対する商品検索状態を管理
+  const [searchingItemId, setSearchingItemId] = React.useState<string | null>(null);
+  const [itemSpecificProducts, setItemSpecificProducts] = React.useState<{
+    [key: string]: Array<{
+      itemName: string;
+      itemPrice: number;
+      itemUrl: string;
+      imageUrl: string;
+      shopName: string;
+      reviewAverage: number;
+    }>;
+  }>({});
+
+  // 特定のアイテムの商品を検索
+  const handleSearchItemProducts = async (itemName: string) => {
+    setSearchingItemId(itemName);
     try {
-      const details = await fetchItemDetail(inputCelebration, item);
-      setItemDetails(details);
+      const items = await fetchRelatedItems(`${inputCelebration} ${itemName}`);
+      setItemSpecificProducts(prev => ({
+        ...prev,
+        [itemName]: items
+      }));
     } catch (error) {
       toast({
         title: 'エラーが発生しました',
-        description: '詳細情報の取得に失敗しました',
+        description: '商品の検索に失敗しました',
         status: 'error',
         duration: 5000,
         isClosable: true,
-        position: 'top-right',
       });
-      onClose(); // エラー時はモーダルを閉じる
+    } finally {
+      setSearchingItemId(null);
+    }
+  };
+
+  const handleItemClick = async (item: string) => {
+    setSelectedItem(item);
+    setIsLoadingDetails(true);
+    setIsLoadingItems(true);
+    onOpen();
+    
+    try {
+      const [details, items] = await Promise.all([
+        fetchItemDetail(inputCelebration, item),
+        fetchRelatedItems(`${inputCelebration} ${item}`)
+      ]);
+      setItemDetails(details);
+      setRelatedItems(items);
+    } catch (error) {
+      toast({
+        title: 'エラーが発生しました',
+        description: '情報の取得に失敗しました',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      onClose();
     } finally {
       setIsLoadingDetails(false);
+      setIsLoadingItems(false);
     }
   };
 
@@ -184,15 +237,20 @@ export const Top: React.FC = () => {
   const handleReadyClick = async (item: string) => {
     setSelectedReady(item);
     setIsLoadingReadyDetails(true);
+    setIsLoadingItems(true);
     onReadyModalOpen();
     
     try {
-      const details = await fetchReadyDetail(inputCelebration, item);
+      const [details, items] = await Promise.all([
+        fetchReadyDetail(inputCelebration, item),
+        fetchRelatedItems(`${inputCelebration} ${item}`)
+      ]);
       setReadyDetails(details);
+      setRelatedItems(items);
     } catch (error) {
       toast({
         title: 'エラーが発生しました',
-        description: '準備詳細の取得に失敗しました',
+        description: '情報の取得に失敗しました',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -200,6 +258,19 @@ export const Top: React.FC = () => {
       onReadyModalClose();
     } finally {
       setIsLoadingReadyDetails(false);
+      setIsLoadingItems(false);
+    }
+  };
+
+  const scrollLeft = (ref: HTMLDivElement | null) => {
+    if (ref) {
+      ref.scrollBy({ left: -300, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = (ref: HTMLDivElement | null) => {
+    if (ref) {
+      ref.scrollBy({ left: 300, behavior: 'smooth' });
     }
   };
 
@@ -251,14 +322,14 @@ export const Top: React.FC = () => {
                 <FormControl isRequired>
                   <FormLabel>誰のためのお祝い？</FormLabel>
                   <Input
-                    placeholder="例: 娘、息子、友人"
+                    placeholder="例: 娘、息子、��人"
                     {...register("who", { required: true } ) }
                     size="lg"
                   />
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>予定日（任意）</FormLabel>
+                  <FormLabel>予定日（��意）</FormLabel>
                   <Input
                     type="date"
                     {...register("when") }
@@ -471,7 +542,7 @@ export const Top: React.FC = () => {
                         ))}
                       </List>
                     ) : (
-                      <Text>{inputDate ? `${inputDate}に予定されています` : "日程は未定です"}</Text>
+                      <Text>{inputDate ? `${inputDate}に予定さ��ています` : "日程は未定です"}</Text>
                     )}
                   </CardBody>
                 </Card>
@@ -488,11 +559,12 @@ export const Top: React.FC = () => {
           onClose();
           setSelectedItem(null);
           setItemDetails(null);
+          setItemSpecificProducts({});
         }} 
         size="xl"
       >
         <ModalOverlay />
-        <ModalContent>
+        <ModalContent maxW="6xl">
           <ModalHeader>
             {selectedItem && `${selectedItem}の詳細情報`}
           </ModalHeader>
@@ -512,7 +584,18 @@ export const Top: React.FC = () => {
                       <Card key={itemIdx} mb={4}>
                         <CardBody>
                           <VStack align="stretch" spacing={3}>
-                            <Text><strong>{item.name}</strong></Text>
+                            <HStack justify="space-between" align="center">
+                              <Text><strong>{item.name}</strong></Text>
+                              <Button
+                                size="sm"
+                                colorScheme="pink"
+                                leftIcon={<SearchIcon />}
+                                isLoading={searchingItemId === item.name}
+                                onClick={() => handleSearchItemProducts(item.name)}
+                              >
+                                商品を探す
+                              </Button>
+                            </HStack>
                             <Text>{item.description}</Text>
                             <SimpleGrid columns={2} spacing={4}>
                               <Box>
@@ -532,6 +615,98 @@ export const Top: React.FC = () => {
                               <Text fontWeight="bold">🎯 おすすめポイント・運気アップ:</Text>
                               <Text>{item.recommendations}</Text>
                             </Box>
+                            
+                            {/* 商品検索結果の表示 */}
+                            {itemSpecificProducts[item.name] && (
+                              <Box>
+                                <Heading size="sm" mb={4}>おすすめ商品</Heading>
+                                <Box position="relative">
+                                  <IconButton
+                                    aria-label="Scroll left"
+                                    icon={<ChevronLeftIcon />}
+                                    position="absolute"
+                                    left="-4"
+                                    top="50%"
+                                    transform="translateY(-50%)"
+                                    zIndex={2}
+                                    onClick={() => scrollLeft(itemSliderRefs.current[item.name])}
+                                    colorScheme="blue"
+                                    variant="ghost"
+                                  />
+                                  <Box
+                                    ref={el => itemSliderRefs.current[item.name] = el}
+                                    overflowX="hidden"
+                                    whiteSpace="nowrap"
+                                    px={4}
+                                    css={{
+                                      '&::-webkit-scrollbar': {
+                                        display: 'none'
+                                      }
+                                    }}
+                                  >
+                                    <HStack spacing={4}>
+                                      {itemSpecificProducts[item.name].map((product, idx) => (
+                                        <Card
+                                          key={idx}
+                                          minW="250px"
+                                          maxW="250px"
+                                          display="inline-block"
+                                          verticalAlign="top"
+                                          _hover={{ transform: 'translateY(-4px)', transition: 'transform 0.2s' }}
+                                        >
+                                          <CardBody>
+                                            <Image
+                                              src={product.imageUrl}
+                                              alt={product.itemName}
+                                              height="150px"
+                                              objectFit="cover"
+                                              borderRadius="md"
+                                            />
+                                            <VStack align="stretch" mt={4} spacing={2}>
+                                              <Text noOfLines={2} fontSize="sm" fontWeight="bold">
+                                                {product.itemName}
+                                              </Text>
+                                              <Text color="blue.600" fontSize="lg" fontWeight="bold">
+                                                ¥{product.itemPrice.toLocaleString()}
+                                              </Text>
+                                              <HStack>
+                                                <StarIcon color="yellow.400" />
+                                                <Text fontSize="sm">{product.reviewAverage}</Text>
+                                              </HStack>
+                                              <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                                                {product.shopName}
+                                              </Text>
+                                              <Button
+                                                as="a"
+                                                href={product.itemUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                size="sm"
+                                                colorScheme="blue"
+                                              >
+                                                商品を見る
+                                              </Button>
+                                            </VStack>
+                                          </CardBody>
+                                        </Card>
+                                      ))}
+                                    </HStack>
+                                  </Box>
+                                  <IconButton
+                                    aria-label="Scroll right"
+                                    icon={<ChevronRightIcon />}
+                                    position="absolute"
+                                    right="-4"
+                                    top="50%"
+                                    transform="translateY(-50%)"
+                                    zIndex={2}
+                                    onClick={() => scrollRight(itemSliderRefs.current[item.name])}
+                                    colorScheme="blue"
+                                    variant="ghost"
+                                  />
+                                </Box>
+                              </Box>
+                            )}
                           </VStack>
                         </CardBody>
                       </Card>
@@ -541,6 +716,101 @@ export const Top: React.FC = () => {
                 <Box borderTop="1px" borderColor={borderColor} pt={4}>
                   <Text fontWeight="bold">合計予算目安:</Text>
                   <Text>{itemDetails.total_budget_estimate}</Text>
+                </Box>
+                <Box>
+                  <Heading size="sm" mb={4}>関連商品</Heading>
+                  {isLoadingItems ? (
+                    <VStack py={4}>
+                      <Spinner size="md" color="blue.500" />
+                      <Text>関連商品を検索中...</Text>
+                    </VStack>
+                  ) : (
+                    <Box position="relative">
+                      <IconButton
+                        aria-label="Scroll left"
+                        icon={<ChevronLeftIcon />}
+                        position="absolute"
+                        left="-4"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        zIndex={2}
+                        onClick={() => scrollLeft(mainSliderRef.current)}
+                        colorScheme="blue"
+                        variant="ghost"
+                      />
+                      <Box
+                        ref={mainSliderRef}
+                        overflowX="hidden"
+                        whiteSpace="nowrap"
+                        px={4}
+                        css={{
+                          '&::-webkit-scrollbar': {
+                            display: 'none'
+                          }
+                        }}
+                      >
+                        <HStack spacing={4}>
+                          {relatedItems.map((item, idx) => (
+                            <Card
+                              key={idx}
+                              minW="250px"
+                              maxW="250px"
+                              display="inline-block"
+                              verticalAlign="top"
+                              _hover={{ transform: 'translateY(-4px)', transition: 'transform 0.2s' }}
+                            >
+                              <CardBody>
+                                <Image
+                                  src={item.imageUrl}
+                                  alt={item.itemName}
+                                  height="150px"
+                                  objectFit="cover"
+                                  borderRadius="md"
+                                />
+                                <VStack align="stretch" mt={4} spacing={2}>
+                                  <Text noOfLines={2} fontSize="sm" fontWeight="bold">
+                                    {item.itemName}
+                                  </Text>
+                                  <Text color="blue.600" fontSize="lg" fontWeight="bold">
+                                    ¥{item.itemPrice.toLocaleString()}
+                                  </Text>
+                                  <HStack>
+                                    <StarIcon color="yellow.400" />
+                                    <Text fontSize="sm">{item.reviewAverage}</Text>
+                                  </HStack>
+                                  <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                                    {item.shopName}
+                                  </Text>
+                                  <Button
+                                    as="a"
+                                    href={item.itemUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    size="sm"
+                                    colorScheme="blue"
+                                  >
+                                    商品を見る
+                                  </Button>
+                                </VStack>
+                              </CardBody>
+                            </Card>
+                          ))}
+                        </HStack>
+                      </Box>
+                      <IconButton
+                        aria-label="Scroll right"
+                        icon={<ChevronRightIcon />}
+                        position="absolute"
+                        right="-4"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        zIndex={2}
+                        onClick={() => scrollRight(mainSliderRef.current)}
+                        colorScheme="blue"
+                        variant="ghost"
+                      />
+                    </Box>
+                  )}
                 </Box>
               </VStack>
             )}
@@ -651,20 +921,11 @@ export const Top: React.FC = () => {
 
                           <Box pl={4}>
                             <Text fontWeight="bold" mb={2}>推奨時間帯:</Text>
-                            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                               {date.time_slots.map((slot, slotIdx) => (
-                                <Box 
-                                  key={slotIdx} 
-                                  p={2} 
-                                  bg="gray.50" 
-                                  borderRadius="md"
-                                >
-                                  <Text fontWeight="semibold">
-                                    {slot.start_time} 〜 {slot.end_time}
-                                  </Text>
-                                  <Text fontSize="sm" color="gray.600">
-                                    {slot.reason}
-                                  </Text>
+                                <Box key={slotIdx}>
+                                  <Text>{slot.start_time} - {slot.end_time}</Text>
+                                  <Text fontSize="sm" color="gray.600">{slot.reason}</Text>
                                 </Box>
                               ))}
                             </SimpleGrid>
@@ -674,7 +935,6 @@ export const Top: React.FC = () => {
                     ))}
                   </List>
                 </Box>
-                {/* 他の詳細情報も同様に表示 */}
               </VStack>
             )}
           </ModalBody>
@@ -688,7 +948,7 @@ export const Top: React.FC = () => {
 
       <Modal
         closeOnOverlayClick={false}
-        isOpen={isReadyModalOpen}
+        isOpen={isReadyModalOpen} 
         onClose={() => {
           onReadyModalClose();
           setSelectedReady(null);
@@ -697,7 +957,7 @@ export const Top: React.FC = () => {
         size="xl"
       >
         <ModalOverlay />
-        <ModalContent>
+        <ModalContent maxW="6xl">
           <ModalHeader>
             {selectedReady && `${selectedReady}の詳細情報`}
           </ModalHeader>
@@ -711,58 +971,143 @@ export const Top: React.FC = () => {
             ) : readyDetails && (
               <VStack spacing={6} align="stretch">
                 <Box>
-                  <Heading size="sm">概要</Heading>
-                  <Text mt={2}>{readyDetails.overview}</Text>
+                  <Heading size="md" mb={4}>{readyDetails.title}</Heading>
+                  <Text>{readyDetails.overview}</Text>
                 </Box>
                 <Box>
-                  <Heading size="sm">タイムライン</Heading>
-                  <Text mt={2}>{readyDetails.timeline}</Text>
+                  <Heading size="sm" mb={2}>タイムライン</Heading>
+                  <Text>{readyDetails.timeline}</Text>
                 </Box>
                 <Box>
-                  <Heading size="sm">手順</Heading>
-                  <List spacing={4} mt={2}>
-                    {readyDetails.steps.map((step, idx) => (
-                      <ListItem key={idx} p={4} borderWidth="1px" borderRadius="md">
-                        <VStack align="stretch" spacing={2}>
-                          <Heading size="xs">{step.step}</Heading>
-                          <Text>{step.description}</Text>
-                          <Text color="gray.600" fontSize="sm">所要時間: {step.duration}</Text>
-                          {step.tips.length > 0 && (
-                            <Box>
-                              <Text fontWeight="bold">Tips:</Text>
-                              <List styleType="disc" pl={4}>
-                                {step.tips.map((tip, tipIdx) => (
-                                  <ListItem key={tipIdx}>{tip}</ListItem>
-                                ))}
-                              </List>
-                            </Box>
-                          )}
-                        </VStack>
-                      </ListItem>
-                    ))}
-                  </List>
+                  <Heading size="sm" mb={2}>ステップ</Heading>
+                  {readyDetails.steps.map((step, idx) => (
+                    <Box key={idx} mb={4}>
+                      <Text fontWeight="bold">{step.step}</Text>
+                      <Text>{step.description}</Text>
+                      <Text>所要時間: {step.duration}</Text>
+                      <Text>コツ:</Text>
+                      <List styleType="disc" pl={4}>
+                        {step.tips.map((tip, tipIdx) => (
+                          <ListItem key={tipIdx}>{tip}</ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  ))}
                 </Box>
-                <SimpleGrid columns={2} spacing={4}>
-                  <Box>
-                    <Heading size="sm">必要なもの</Heading>
-                    <List styleType="disc" pl={4} mt={2}>
-                      {readyDetails.required_items.map((item, idx) => (
-                        <ListItem key={idx}>{item}</ListItem>
-                      ))}
-                    </List>
-                  </Box>
-                  <Box>
-                    <Heading size="sm">見積もり費用</Heading>
-                    <Text mt={2}>{readyDetails.estimated_cost}</Text>
-                  </Box>
-                </SimpleGrid>
                 <Box>
-                  <Heading size="sm">注意点</Heading>
-                  <List styleType="disc" pl={4} mt={2}>
-                    {readyDetails.considerations.map((item, idx) => (
+                  <Heading size="sm" mb={2}>必要な物</Heading>
+                  <List styleType="disc" pl={4}>
+                    {readyDetails.required_items.map((item, idx) => (
                       <ListItem key={idx}>{item}</ListItem>
                     ))}
                   </List>
+                </Box>
+                <Box>
+                  <Heading size="sm" mb={2}>予算目安</Heading>
+                  <Text>{readyDetails.estimated_cost}</Text>
+                </Box>
+                <Box>
+                  <Heading size="sm" mb={2}>考慮事項</Heading>
+                  <List styleType="disc" pl={4}>
+                    {readyDetails.considerations.map((consideration, idx) => (
+                      <ListItem key={idx}>{consideration}</ListItem>
+                    ))}
+                  </List>
+                </Box>
+                <Box>
+                  <Heading size="sm" mb={4}>関連商品</Heading>
+                  {isLoadingItems ? (
+                    <VStack py={4}>
+                      <Spinner size="md" color="blue.500" />
+                      <Text>関連商品を検索中...</Text>
+                    </VStack>
+                  ) : (
+                    <Box position="relative">
+                      <IconButton
+                        aria-label="Scroll left"
+                        icon={<ChevronLeftIcon />}
+                        position="absolute"
+                        left="-4"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        zIndex={2}
+                        onClick={() => scrollLeft(mainSliderRef.current)}
+                        colorScheme="blue"
+                        variant="ghost"
+                      />
+                      <Box
+                        ref={mainSliderRef}
+                        overflowX="hidden"
+                        whiteSpace="nowrap"
+                        px={4}
+                        css={{
+                          '&::-webkit-scrollbar': {
+                            display: 'none'
+                          }
+                        }}
+                      >
+                        <HStack spacing={4}>
+                          {relatedItems.map((item, idx) => (
+                            <Card
+                              key={idx}
+                              minW="250px"
+                              maxW="250px"
+                              display="inline-block"
+                              verticalAlign="top"
+                              _hover={{ transform: 'translateY(-4px)', transition: 'transform 0.2s' }}
+                            >
+                              <CardBody>
+                                <Image
+                                  src={item.imageUrl}
+                                  alt={item.itemName}
+                                  height="150px"
+                                  objectFit="cover"
+                                  borderRadius="md"
+                                />
+                                <VStack align="stretch" mt={4} spacing={2}>
+                                  <Text noOfLines={2} fontSize="sm" fontWeight="bold">
+                                    {item.itemName}
+                                  </Text>
+                                  <Text color="blue.600" fontSize="lg" fontWeight="bold">
+                                    ¥{item.itemPrice.toLocaleString()}
+                                  </Text>
+                                  <HStack>
+                                    <StarIcon color="yellow.400" />
+                                    <Text fontSize="sm">{item.reviewAverage}</Text>
+                                  </HStack>
+                                  <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                                    {item.shopName}
+                                  </Text>
+                                  <Button
+                                    as="a"
+                                    href={item.itemUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    size="sm"
+                                    colorScheme="blue"
+                                  >
+                                    商品を見る
+                                  </Button>
+                                </VStack>
+                              </CardBody>
+                            </Card>
+                          ))}
+                        </HStack>
+                      </Box>
+                      <IconButton
+                        aria-label="Scroll right"
+                        icon={<ChevronRightIcon />}
+                        position="absolute"
+                        right="-4"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        zIndex={2}
+                        onClick={() => scrollRight(mainSliderRef.current)}
+                        colorScheme="blue"
+                        variant="ghost"
+                      />
+                    </Box>
+                  )}
                 </Box>
               </VStack>
             )}

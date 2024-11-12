@@ -178,6 +178,20 @@ export const useGemini = () => {
     }
   }
 
+  const fetchRelatedItems = async (keyword: string) => {
+    try {
+      const params = new URLSearchParams({ keyword });
+      const response = await fetch(
+        `https://searchrelateditems-cti2s6vveq-an.a.run.app?${params}`,
+      );
+      const data = await response.json();
+      return data.items;
+    } catch (error) {
+      console.error('Error fetching related items:', error);
+      throw error;
+    }
+  }
+
   return {
     checkCelebration,
     checkCelebrationError,
@@ -187,6 +201,7 @@ export const useGemini = () => {
     fetchCelebrationPlan,
     fetchItemDetail,
     fetchEventDetail,
-    fetchReadyDetail
+    fetchReadyDetail,
+    fetchRelatedItems
   }
 }
