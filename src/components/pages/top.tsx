@@ -21,65 +21,20 @@ import {
   FormControl,
   FormLabel,
   Stack,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalFooter,
-  ModalBody,
-  ModalCloseButton,
   useDisclosure,
   Tooltip,
-  Spinner,
   HStack,
   IconButton,
-  Badge,
   Select,
-  Image
 } from '@chakra-ui/react';
 import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from '@chakra-ui/icons';
-import { useGemini } from '@/_hooks/useGemini';
+import { useGemini } from '@/hooks/useGemini';
 import { createGoogleCalendarUrl, createYahooCalendarUrl } from '@/utils/calendar';
 import { PREFECTURES } from '@/constants/prefectures';
-
-interface ItemDetail {
-  name: string;
-  description: string;
-  importance: string;
-  estimated_budget: string;
-  when_to_prepare: string;
-  notes: string;
-  recommendations: string;
-}
-
-interface TimeSlot {
-  start_time: string;
-  end_time: string;
-  reason: string;
-}
-
-interface RecommendedDate {
-  date: string;
-  reason: string;
-  considerations?: string;
-  is_holiday?: boolean;
-  time_slots: TimeSlot[];
-}
-
-interface EventDetail {
-  description: string;
-  cultural_significance: string;
-  recommended_dates: RecommendedDate[];
-}
-
-// フォーム入力の型定義
-interface FormInput {
-  text: string;
-  who: string;
-  when: string;
-  prefecture?: string;  // optional に変更
-  city?: string;       // optional に変更
-}
+import { ItemDetail, TimeSlot, RecommendedDate, EventDetail, FormInput } from '@/types/celebrationTypes';
+import { ItemDetailModal } from '@/components/modals/ItemDetailModal';
+import { EventDetailModal } from '@/components/modals/EventDetailModal';
+import { ReadyDetailModal } from '@/components/modals/ReadyDetailModal';
 
 export const Top: React.FC = () => {
   const { register, handleSubmit, watch } = useForm<FormInput>();
@@ -132,18 +87,6 @@ export const Top: React.FC = () => {
     onClose: onReadyModalClose
   } = useDisclosure();
 
-  const [relatedItems, setRelatedItems] = React.useState<Array<{
-    itemName: string;
-    itemPrice: number;
-    itemUrl: string;
-    imageUrl: string;
-    shopName: string;
-    reviewAverage: number;
-  }>>([]);
-  const [isLoadingItems, setIsLoadingItems] = React.useState(false);
-  const mainSliderRef = React.useRef<HTMLDivElement>(null);
-  const itemSliderRefs = React.useRef<{ [key: string]: HTMLDivElement | null }>({});
-
   // 特定のアイテムに対する商品検索状態を管理
   const [searchingItemId, setSearchingItemId] = React.useState<string | null>(null);
   const [itemSpecificProducts, setItemSpecificProducts] = React.useState<{
@@ -161,7 +104,7 @@ export const Top: React.FC = () => {
   const handleSearchItemProducts = async (itemName: string) => {
     setSearchingItemId(itemName);
     try {
-      const items = await fetchRelatedItems(`${inputCelebration} ${itemName}`);
+      const items = await fetchRelatedItems(`${itemName} ${inputCelebration}`);
       setItemSpecificProducts(prev => ({
         ...prev,
         [itemName]: items
@@ -182,16 +125,10 @@ export const Top: React.FC = () => {
   const handleItemClick = async (item: string) => {
     setSelectedItem(item);
     setIsLoadingDetails(true);
-    setIsLoadingItems(true);
     onOpen();
     
     try {
-      const [details, items] = await Promise.all([
-        fetchItemDetail(inputCelebration, item),
-        fetchRelatedItems(`${inputCelebration} ${item}`)
-      ]);
-      setItemDetails(details);
-      setRelatedItems(items);
+      setItemDetails(await fetchItemDetail(inputCelebration, item));
     } catch (error) {
       toast({
         title: 'エラーが発生しました',
@@ -203,7 +140,6 @@ export const Top: React.FC = () => {
       onClose();
     } finally {
       setIsLoadingDetails(false);
-      setIsLoadingItems(false);
     }
   };
 
@@ -237,16 +173,9 @@ export const Top: React.FC = () => {
   const handleReadyClick = async (item: string) => {
     setSelectedReady(item);
     setIsLoadingReadyDetails(true);
-    setIsLoadingItems(true);
     onReadyModalOpen();
-    
     try {
-      const [details, items] = await Promise.all([
-        fetchReadyDetail(inputCelebration, item),
-        fetchRelatedItems(`${inputCelebration} ${item}`)
-      ]);
-      setReadyDetails(details);
-      setRelatedItems(items);
+      setReadyDetails(await fetchReadyDetail(inputCelebration, item),);
     } catch (error) {
       toast({
         title: 'エラーが発生しました',
@@ -258,7 +187,6 @@ export const Top: React.FC = () => {
       onReadyModalClose();
     } finally {
       setIsLoadingReadyDetails(false);
-      setIsLoadingItems(false);
     }
   };
 
@@ -322,14 +250,14 @@ export const Top: React.FC = () => {
                 <FormControl isRequired>
                   <FormLabel>誰のためのお祝い？</FormLabel>
                   <Input
-                    placeholder="例: 娘、息子、��人"
+                    placeholder="例: 娘、息子、恋人"
                     {...register("who", { required: true } ) }
                     size="lg"
                   />
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>予定日（��意）</FormLabel>
+                  <FormLabel>予定日（任意）</FormLabel>
                   <Input
                     type="date"
                     {...register("when") }
@@ -542,7 +470,7 @@ export const Top: React.FC = () => {
                         ))}
                       </List>
                     ) : (
-                      <Text>{inputDate ? `${inputDate}に予定さ��ています` : "日程は未定です"}</Text>
+                      <Text>{inputDate ? `${inputDate}に予定されています` : "日程は未定です"}</Text>
                     )}
                   </CardBody>
                 </Card>
@@ -552,573 +480,43 @@ export const Top: React.FC = () => {
         </Fade>
       </VStack>
 
-      <Modal
-        closeOnOverlayClick={false}
-        isOpen={isOpen} 
-        onClose={() => {
-          onClose();
-          setSelectedItem(null);
-          setItemDetails(null);
-          setItemSpecificProducts({});
-        }} 
-        size="xl"
-      >
-        <ModalOverlay />
-        <ModalContent maxW="6xl">
-          <ModalHeader>
-            {selectedItem && `${selectedItem}の詳細情報`}
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {isLoadingDetails ? (
-              <VStack py={8} spacing={4}>
-                <Spinner size="xl" color="blue.500" />
-                <Text>詳細情報を取得中...</Text>
-              </VStack>
-            ) : itemDetails && (
-              <VStack spacing={6} align="stretch">
-                {itemDetails.categories.map((category, idx) => (
-                  <Box key={idx}>
-                    <Heading size="md" mb={4}>{category.name}</Heading>
-                    {category.items.map((item, itemIdx) => (
-                      <Card key={itemIdx} mb={4}>
-                        <CardBody>
-                          <VStack align="stretch" spacing={3}>
-                            <HStack justify="space-between" align="center">
-                              <Text><strong>{item.name}</strong></Text>
-                              <Button
-                                size="sm"
-                                colorScheme="pink"
-                                leftIcon={<SearchIcon />}
-                                isLoading={searchingItemId === item.name}
-                                onClick={() => handleSearchItemProducts(item.name)}
-                              >
-                                商品を探す
-                              </Button>
-                            </HStack>
-                            <Text>{item.description}</Text>
-                            <SimpleGrid columns={2} spacing={4}>
-                              <Box>
-                                <Text fontWeight="bold">予算目安:</Text>
-                                <Text>{item.estimated_budget}</Text>
-                              </Box>
-                              <Box>
-                                <Text fontWeight="bold">準備時期:</Text>
-                                <Text>{item.when_to_prepare}</Text>
-                              </Box>
-                            </SimpleGrid>
-                            <Box>
-                              <Text fontWeight="bold">選び方のコツ・注意点:</Text>
-                              <Text>{item.notes}</Text>
-                            </Box>
-                            <Box>
-                              <Text fontWeight="bold">🎯 おすすめポイント・運気アップ:</Text>
-                              <Text>{item.recommendations}</Text>
-                            </Box>
-                            
-                            {/* 商品検索結果の表示 */}
-                            {itemSpecificProducts[item.name] && (
-                              <Box>
-                                <Heading size="sm" mb={4}>おすすめ商品</Heading>
-                                <Box position="relative">
-                                  <IconButton
-                                    aria-label="Scroll left"
-                                    icon={<ChevronLeftIcon />}
-                                    position="absolute"
-                                    left="-4"
-                                    top="50%"
-                                    transform="translateY(-50%)"
-                                    zIndex={2}
-                                    onClick={() => scrollLeft(itemSliderRefs.current[item.name])}
-                                    colorScheme="blue"
-                                    variant="ghost"
-                                  />
-                                  <Box
-                                    ref={el => itemSliderRefs.current[item.name] = el}
-                                    overflowX="hidden"
-                                    whiteSpace="nowrap"
-                                    px={4}
-                                    css={{
-                                      '&::-webkit-scrollbar': {
-                                        display: 'none'
-                                      }
-                                    }}
-                                  >
-                                    <HStack spacing={4}>
-                                      {itemSpecificProducts[item.name].map((product, idx) => (
-                                        <Card
-                                          key={idx}
-                                          minW="250px"
-                                          maxW="250px"
-                                          display="inline-block"
-                                          verticalAlign="top"
-                                          _hover={{ transform: 'translateY(-4px)', transition: 'transform 0.2s' }}
-                                        >
-                                          <CardBody>
-                                            <Image
-                                              src={product.imageUrl}
-                                              alt={product.itemName}
-                                              height="150px"
-                                              objectFit="cover"
-                                              borderRadius="md"
-                                            />
-                                            <VStack align="stretch" mt={4} spacing={2}>
-                                              <Text noOfLines={2} fontSize="sm" fontWeight="bold">
-                                                {product.itemName}
-                                              </Text>
-                                              <Text color="blue.600" fontSize="lg" fontWeight="bold">
-                                                ¥{product.itemPrice.toLocaleString()}
-                                              </Text>
-                                              <HStack>
-                                                <StarIcon color="yellow.400" />
-                                                <Text fontSize="sm">{product.reviewAverage}</Text>
-                                              </HStack>
-                                              <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                                                {product.shopName}
-                                              </Text>
-                                              <Button
-                                                as="a"
-                                                href={product.itemUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                size="sm"
-                                                colorScheme="blue"
-                                              >
-                                                商品を見る
-                                              </Button>
-                                            </VStack>
-                                          </CardBody>
-                                        </Card>
-                                      ))}
-                                    </HStack>
-                                  </Box>
-                                  <IconButton
-                                    aria-label="Scroll right"
-                                    icon={<ChevronRightIcon />}
-                                    position="absolute"
-                                    right="-4"
-                                    top="50%"
-                                    transform="translateY(-50%)"
-                                    zIndex={2}
-                                    onClick={() => scrollRight(itemSliderRefs.current[item.name])}
-                                    colorScheme="blue"
-                                    variant="ghost"
-                                  />
-                                </Box>
-                              </Box>
-                            )}
-                          </VStack>
-                        </CardBody>
-                      </Card>
-                    ))}
-                  </Box>
-                ))}
-                <Box borderTop="1px" borderColor={borderColor} pt={4}>
-                  <Text fontWeight="bold">合計予算目安:</Text>
-                  <Text>{itemDetails.total_budget_estimate}</Text>
-                </Box>
-                <Box>
-                  <Heading size="sm" mb={4}>関連商品</Heading>
-                  {isLoadingItems ? (
-                    <VStack py={4}>
-                      <Spinner size="md" color="blue.500" />
-                      <Text>関連商品を検索中...</Text>
-                    </VStack>
-                  ) : (
-                    <Box position="relative">
-                      <IconButton
-                        aria-label="Scroll left"
-                        icon={<ChevronLeftIcon />}
-                        position="absolute"
-                        left="-4"
-                        top="50%"
-                        transform="translateY(-50%)"
-                        zIndex={2}
-                        onClick={() => scrollLeft(mainSliderRef.current)}
-                        colorScheme="blue"
-                        variant="ghost"
-                      />
-                      <Box
-                        ref={mainSliderRef}
-                        overflowX="hidden"
-                        whiteSpace="nowrap"
-                        px={4}
-                        css={{
-                          '&::-webkit-scrollbar': {
-                            display: 'none'
-                          }
-                        }}
-                      >
-                        <HStack spacing={4}>
-                          {relatedItems.map((item, idx) => (
-                            <Card
-                              key={idx}
-                              minW="250px"
-                              maxW="250px"
-                              display="inline-block"
-                              verticalAlign="top"
-                              _hover={{ transform: 'translateY(-4px)', transition: 'transform 0.2s' }}
-                            >
-                              <CardBody>
-                                <Image
-                                  src={item.imageUrl}
-                                  alt={item.itemName}
-                                  height="150px"
-                                  objectFit="cover"
-                                  borderRadius="md"
-                                />
-                                <VStack align="stretch" mt={4} spacing={2}>
-                                  <Text noOfLines={2} fontSize="sm" fontWeight="bold">
-                                    {item.itemName}
-                                  </Text>
-                                  <Text color="blue.600" fontSize="lg" fontWeight="bold">
-                                    ¥{item.itemPrice.toLocaleString()}
-                                  </Text>
-                                  <HStack>
-                                    <StarIcon color="yellow.400" />
-                                    <Text fontSize="sm">{item.reviewAverage}</Text>
-                                  </HStack>
-                                  <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                                    {item.shopName}
-                                  </Text>
-                                  <Button
-                                    as="a"
-                                    href={item.itemUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    size="sm"
-                                    colorScheme="blue"
-                                  >
-                                    商品を見る
-                                  </Button>
-                                </VStack>
-                              </CardBody>
-                            </Card>
-                          ))}
-                        </HStack>
-                      </Box>
-                      <IconButton
-                        aria-label="Scroll right"
-                        icon={<ChevronRightIcon />}
-                        position="absolute"
-                        right="-4"
-                        top="50%"
-                        transform="translateY(-50%)"
-                        zIndex={2}
-                        onClick={() => scrollRight(mainSliderRef.current)}
-                        colorScheme="blue"
-                        variant="ghost"
-                      />
-                    </Box>
-                  )}
-                </Box>
-              </VStack>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button colorScheme="blue" onClick={onClose}>
-              閉じる
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ItemDetailModal
+        isOpen={isOpen}
+        onClose={onClose}
+        selectedItem={selectedItem}
+        itemDetails={itemDetails}
+        isLoadingDetails={isLoadingDetails}
+        searchingItemId={searchingItemId}
+        itemSpecificProducts={itemSpecificProducts}
+        handleSearchItemProducts={handleSearchItemProducts}
+      />
 
-      <Modal
-        closeOnOverlayClick={false}
-        isOpen={isEventModalOpen} 
+      <EventDetailModal
+        isOpen={isEventModalOpen}
         onClose={() => {
           onEventModalClose();
           setSelectedEvent(null);
           setEventDetails(null);
         }}
-        size="xl"
-      >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            {selectedEvent && `${selectedEvent}の詳細情報`}
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {isLoadingEventDetails ? (
-              <VStack py={8} spacing={4}>
-                <Spinner size="xl" color="blue.500" />
-                <Text>詳細情報を取得中...</Text>
-              </VStack>
-            ) : eventDetails && (
-              <VStack spacing={6} align="stretch">
-                <Box>
-                  <Heading size="sm">イベントの説明</Heading>
-                  <Text mt={2}>{eventDetails.description}</Text>
-                </Box>
-                <Box>
-                  <Heading size="sm">文化的な意義</Heading>
-                  <Text mt={2}>{eventDetails.cultural_significance}</Text>
-                </Box>
-                <Box>
-                  <Heading size="sm">推奨日程</Heading>
-                  <List spacing={2} mt={2}>
-                    {eventDetails.recommended_dates.map((date: RecommendedDate, idx: number) => (
-                      <ListItem key={idx} p={3} borderWidth="1px" borderRadius="md">
-                        <VStack align="stretch" spacing={3}>
-                          <HStack justify="space-between" align="flex-start">
-                            <VStack align="start" spacing={1}>
-                              <Text fontWeight="bold">
-                                {new Date(date.date).toLocaleDateString('ja-JP', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric',
-                                  weekday: 'long'
-                                })}
-                                {date.is_holiday && 
-                                  <Badge ml={2} colorScheme="red">休日</Badge>
-                                }
-                              </Text>
-                              <Text>{date.reason}</Text>
-                              <Text fontSize="sm" color="gray.600">{date.considerations}</Text>
-                            </VStack>
-                            <HStack spacing={2}>
-                              <Tooltip label="Googleカレンダーに追加">
-                                <IconButton
-                                  aria-label="Googleカレンダーに追加"
-                                  icon={<CalendarIcon />}
-                                  size="sm"
-                                  colorScheme="blue"
-                                  variant="ghost"
-                                  as="a"
-                                  href={createGoogleCalendarUrl(
-                                    selectedEvent || '',
-                                    `${date.reason}\n${date.considerations}`,
-                                    date.date,
-                                    date.time_slots[0]?.start_time,
-                                    date.time_slots[0]?.end_time,
-                                  )}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                />
-                              </Tooltip>
-                              <Tooltip label="Yahooカレンダーに追加">
-                                <IconButton
-                                  aria-label="Yahooカレンダーに追加"
-                                  icon={<CalendarIcon />}
-                                  size="sm"
-                                  colorScheme="purple"
-                                  variant="ghost"
-                                  as="a"
-                                  href={createYahooCalendarUrl(
-                                    selectedEvent || '',
-                                    `${date.reason}\n${date.considerations}`,
-                                    date.date,
-                                    date.time_slots[0]?.start_time,
-                                    date.time_slots[0]?.end_time,
-                                  )}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                />
-                              </Tooltip>
-                            </HStack>
-                          </HStack>
+        selectedEvent={selectedEvent}
+        eventDetails={eventDetails}
+        isLoadingEventDetails={isLoadingEventDetails}
+        prefecture={inputPrefecture}
+        city={inputCity}
+      />
 
-                          <Box pl={4}>
-                            <Text fontWeight="bold" mb={2}>推奨時間帯:</Text>
-                            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                              {date.time_slots.map((slot, slotIdx) => (
-                                <Box key={slotIdx}>
-                                  <Text>{slot.start_time} - {slot.end_time}</Text>
-                                  <Text fontSize="sm" color="gray.600">{slot.reason}</Text>
-                                </Box>
-                              ))}
-                            </SimpleGrid>
-                          </Box>
-                        </VStack>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Box>
-              </VStack>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button colorScheme="blue" onClick={onEventModalClose}>
-              閉じる
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      <Modal
-        closeOnOverlayClick={false}
-        isOpen={isReadyModalOpen} 
+      <ReadyDetailModal
+        isOpen={isReadyModalOpen}
         onClose={() => {
           onReadyModalClose();
           setSelectedReady(null);
           setReadyDetails(null);
         }}
-        size="xl"
-      >
-        <ModalOverlay />
-        <ModalContent maxW="6xl">
-          <ModalHeader>
-            {selectedReady && `${selectedReady}の詳細情報`}
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {isLoadingReadyDetails ? (
-              <VStack py={8} spacing={4}>
-                <Spinner size="xl" color="blue.500" />
-                <Text>詳細情報を取得中...</Text>
-              </VStack>
-            ) : readyDetails && (
-              <VStack spacing={6} align="stretch">
-                <Box>
-                  <Heading size="md" mb={4}>{readyDetails.title}</Heading>
-                  <Text>{readyDetails.overview}</Text>
-                </Box>
-                <Box>
-                  <Heading size="sm" mb={2}>タイムライン</Heading>
-                  <Text>{readyDetails.timeline}</Text>
-                </Box>
-                <Box>
-                  <Heading size="sm" mb={2}>ステップ</Heading>
-                  {readyDetails.steps.map((step, idx) => (
-                    <Box key={idx} mb={4}>
-                      <Text fontWeight="bold">{step.step}</Text>
-                      <Text>{step.description}</Text>
-                      <Text>所要時間: {step.duration}</Text>
-                      <Text>コツ:</Text>
-                      <List styleType="disc" pl={4}>
-                        {step.tips.map((tip, tipIdx) => (
-                          <ListItem key={tipIdx}>{tip}</ListItem>
-                        ))}
-                      </List>
-                    </Box>
-                  ))}
-                </Box>
-                <Box>
-                  <Heading size="sm" mb={2}>必要な物</Heading>
-                  <List styleType="disc" pl={4}>
-                    {readyDetails.required_items.map((item, idx) => (
-                      <ListItem key={idx}>{item}</ListItem>
-                    ))}
-                  </List>
-                </Box>
-                <Box>
-                  <Heading size="sm" mb={2}>予算目安</Heading>
-                  <Text>{readyDetails.estimated_cost}</Text>
-                </Box>
-                <Box>
-                  <Heading size="sm" mb={2}>考慮事項</Heading>
-                  <List styleType="disc" pl={4}>
-                    {readyDetails.considerations.map((consideration, idx) => (
-                      <ListItem key={idx}>{consideration}</ListItem>
-                    ))}
-                  </List>
-                </Box>
-                <Box>
-                  <Heading size="sm" mb={4}>関連商品</Heading>
-                  {isLoadingItems ? (
-                    <VStack py={4}>
-                      <Spinner size="md" color="blue.500" />
-                      <Text>関連商品を検索中...</Text>
-                    </VStack>
-                  ) : (
-                    <Box position="relative">
-                      <IconButton
-                        aria-label="Scroll left"
-                        icon={<ChevronLeftIcon />}
-                        position="absolute"
-                        left="-4"
-                        top="50%"
-                        transform="translateY(-50%)"
-                        zIndex={2}
-                        onClick={() => scrollLeft(mainSliderRef.current)}
-                        colorScheme="blue"
-                        variant="ghost"
-                      />
-                      <Box
-                        ref={mainSliderRef}
-                        overflowX="hidden"
-                        whiteSpace="nowrap"
-                        px={4}
-                        css={{
-                          '&::-webkit-scrollbar': {
-                            display: 'none'
-                          }
-                        }}
-                      >
-                        <HStack spacing={4}>
-                          {relatedItems.map((item, idx) => (
-                            <Card
-                              key={idx}
-                              minW="250px"
-                              maxW="250px"
-                              display="inline-block"
-                              verticalAlign="top"
-                              _hover={{ transform: 'translateY(-4px)', transition: 'transform 0.2s' }}
-                            >
-                              <CardBody>
-                                <Image
-                                  src={item.imageUrl}
-                                  alt={item.itemName}
-                                  height="150px"
-                                  objectFit="cover"
-                                  borderRadius="md"
-                                />
-                                <VStack align="stretch" mt={4} spacing={2}>
-                                  <Text noOfLines={2} fontSize="sm" fontWeight="bold">
-                                    {item.itemName}
-                                  </Text>
-                                  <Text color="blue.600" fontSize="lg" fontWeight="bold">
-                                    ¥{item.itemPrice.toLocaleString()}
-                                  </Text>
-                                  <HStack>
-                                    <StarIcon color="yellow.400" />
-                                    <Text fontSize="sm">{item.reviewAverage}</Text>
-                                  </HStack>
-                                  <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                                    {item.shopName}
-                                  </Text>
-                                  <Button
-                                    as="a"
-                                    href={item.itemUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    size="sm"
-                                    colorScheme="blue"
-                                  >
-                                    商品を見る
-                                  </Button>
-                                </VStack>
-                              </CardBody>
-                            </Card>
-                          ))}
-                        </HStack>
-                      </Box>
-                      <IconButton
-                        aria-label="Scroll right"
-                        icon={<ChevronRightIcon />}
-                        position="absolute"
-                        right="-4"
-                        top="50%"
-                        transform="translateY(-50%)"
-                        zIndex={2}
-                        onClick={() => scrollRight(mainSliderRef.current)}
-                        colorScheme="blue"
-                        variant="ghost"
-                      />
-                    </Box>
-                  )}
-                </Box>
-              </VStack>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button colorScheme="blue" onClick={onReadyModalClose}>
-              閉じる
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+        selectedReady={selectedReady}
+        readyDetails={readyDetails}
+        isLoadingReadyDetails={isLoadingReadyDetails}
+      />
+
     </Container>
   );
 };

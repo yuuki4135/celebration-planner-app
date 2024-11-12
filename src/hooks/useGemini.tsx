@@ -170,7 +170,6 @@ export const useGemini = () => {
         `https://readydetail-cti2s6vveq-an.a.run.app?${params}`,
       );
       const data = await response.json();
-      console.log(data);
       return data;
     } catch (error) {
       console.error('Error fetching ready details:', error);

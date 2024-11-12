@@ -15,6 +15,10 @@ const allowDomain = process.env.ALLOW_DOMAIN
 const fetch = require('node-fetch');
 const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
 
+// Google Places APIのクライアントを初期化
+const { Client } = require("@googlemaps/google-maps-services-js");
+const placesClient = new Client({});
+
 // 地域の緯度経度を取得する関数を追加
 async function getLocationCoordinates(prefecture: string, city: string) {
   try {
@@ -172,7 +176,7 @@ const createPrompt = (text: string, who: string, when: string | null, weatherDat
 
   例えば「結婚式」の場合：
   - ready: ["会場の下見", "招待状の準備", "衣装の選定"]のように具体的に
-  - items: 必要な準備物を具体的に列挙�����身に着けるもの・持っていくもの・事前に準備するもの全てを含める
+  - items: 必要な準備物を具体的に列�������身に着けるもの・持っていくもの・事前に準備するもの全てを含める
   - events: ["結納", "前撮り", "披露宴", "二次会"]のようにイベント名のみを列挙
   - schedule: 日取りの候補と理由を明確に
   - message: お祝いの意味や準備のポイントを具体的に
@@ -213,7 +217,7 @@ export const AskCelebration = onRequest(async (request: Request, response: Respo
     const decoded = jsonReplace(result);
     const parsed = JSON.parse(decoded);
     
-    // 天気予報情報の追加（地域情報がある場合のみ）
+    // 天気予報情報の追加（地域情報がある場合���み）
     if (Array.isArray(parsed.schedule) && weatherData.length > 0) {
       parsed.schedule = parsed.schedule.map((item: any) => {
         const weatherInfo = weatherData.find(w => w.date === item.date)?.forecast;
@@ -289,7 +293,7 @@ export const itemsDetail = onRequest(async (request: Request, response: Response
     2. 品の種類や選択肢は複数提案
     3. 準備時期は具体的な時期を記載
     4. 選び方のコツは具体的なアドバイスを含める
-    5. recommendationsには日本の文化や風習に基づいた運気アップのポイントや縁起物としての意味を含める
+    5. recommendationsには日本の文化や風習���基づいた運気アップのポイントや縁起物としての意味を含める
     6. 色や数字、方角などの縁起の良い選び方があれば含める
     `;
 
@@ -379,7 +383,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
     土日祝日の候補：${weekends.slice(0, 10).join(', ')}など
     ${weatherInfo}
 
-    以下のJSON形式で返答してください：
+    以下のJSON形式で���答してください：
     {
       "eventDetails": {
         "name": "イベント名",
@@ -408,7 +412,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
           }
         ],
         "estimated_budget": {
-          "min": "最小予算",
+          "min": "最���予算",
           "max": "最大予算",
           "breakdown": [
             {
@@ -453,7 +457,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
     7. 縁起の良い日や記念日なども考慮してください
     8. 過去の日付は絶対に提案しないでください
     9. time_slotsは各日付に対して2つ以上の時間帯を提案してください
-    10. 時間帯は季節による日照時間、交通の便、混雑状況、参加者の都合などを考慮してください
+    10. 時間帯は���節による日照時間、交通の便、混雑状況、参加者の都合などを考慮してください
     11. 時間帯の理由は具体的に記載してください
     `;
 
@@ -546,7 +550,7 @@ export const readyDetail = onRequest(async (request: Request, response: Response
       ],
       "estimated_cost": "費用の目安",
       "considerations": [
-        "準備を進める上での注意点や配慮事項"
+        "準備を進める上での注意点や配慮事���"
       ]
     }
 
@@ -620,6 +624,99 @@ export const searchRelatedItems = onRequest(async (request: Request, response: R
     response.send(JSON.stringify({
       error: error.message,
       items: []
+    }));
+  }
+});
+
+// Google Places APIの代わりにOSM/Nominatimを使用
+export const searchRelatedShops = onRequest(async (request: Request, response: Response) => {
+  response.set('Access-Control-Allow-Origin', allowDomain);
+  response.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST');
+  response.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  try {
+    const eventType = String(request.query.eventType) || '';
+    const prefecture = String(request.query.prefecture) || '';
+    const city = String(request.query.city) || '';
+
+    // Nominatimで位置情報を取得
+    const geocodeResponse = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${prefecture}${city}`)}&format=json&country=Japan&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'CelebrationPlannerApp/1.0' // Nominatimは User-Agent の指定を推���
+        }
+      }
+    );
+    const geocodeData = await geocodeResponse.json();
+
+    if (!geocodeData[0]) {
+      throw new Error('Location not found');
+    }
+
+    const { lat, lon } = geocodeData[0];
+
+    // イベントタイプに基づいて検索キーワードを設定
+    const searchKeywords = {
+      '結婚式': ['結婚式場', 'ブライダル', 'ホテル'],
+      '誕生日': ['ケーキ屋', 'レストラン', 'カフェ'],
+      '出産祝い': ['ベビー用品', 'デパート'],
+      // 他のイベントタイプ���必要に応じて追加
+    };
+
+    const keywords = searchKeywords[eventType as keyof typeof searchKeywords] || [eventType];
+    
+    // OverpassQL APIを使用して周辺の施設を検索
+    const searchPromises = keywords.map(async (keyword) => {
+      const query = `
+        [out:json][timeout:25];
+        (
+          node["name"~"${keyword}",i](around:5000,${lat},${lon});
+          way["name"~"${keyword}",i](around:5000,${lat},${lon});
+          relation["name"~"${keyword}",i](around:5000,${lat},${lon});
+        );
+        out body;
+        >;
+        out skel qt;
+      `;
+
+      const overpassResponse = await fetch(
+        'https://overpass-api.de/api/interpreter',
+        {
+          method: 'POST',
+          body: query
+        }
+      );
+      const data = await overpassResponse.json();
+      return { keyword, data };
+    });
+
+    const searchResults = await Promise.all(searchPromises);
+    
+    // 結果を整形
+    const shops = searchResults.flatMap(({ keyword, data }) => 
+      data.elements
+        .filter(element => element.tags && element.tags.name)
+        .map(element => ({
+          name: element.tags.name,
+          address: element.tags['addr:full'] || `${prefecture}${city}`,
+          rating: null, // OSMには評価情報がないため
+          place_id: element.id.toString(),
+          location: {
+            lat: element.lat,
+            lon: element.lon
+          },
+          category: keyword,
+          website: element.tags.website || null,
+          phone: element.tags.phone || element.tags['contact:phone'] || null
+        }))
+    );
+
+    response.send(JSON.stringify({ shops }));
+  } catch (error: any) {
+    response.send(JSON.stringify({
+      error: error.message,
+      shops: []
     }));
   }
 });
