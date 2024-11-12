@@ -33,11 +33,13 @@ import {
   Spinner,
   HStack,
   IconButton,
-  Badge
+  Badge,
+  Select
 } from '@chakra-ui/react';
 import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon } from '@chakra-ui/icons';
 import { useGemini } from '@/_hooks/useGemini';
 import { createGoogleCalendarUrl, createYahooCalendarUrl } from '@/utils/calendar';
+import { PREFECTURES } from '@/constants/prefectures';
 
 interface ItemDetail {
   name: string;
@@ -74,15 +76,19 @@ interface FormInput {
   text: string;
   who: string;
   when: string;
+  prefecture?: string;  // optional に変更
+  city?: string;       // optional に変更
 }
 
 export const Top: React.FC = () => {
   const { register, handleSubmit, watch } = useForm<FormInput>();
-  const { fetchCelebrationPlan, isLoading, showResults, response, fetchItemDetail, fetchEventDetail } = useGemini();
+  const { fetchCelebrationPlan, isLoading, showResults, response, fetchItemDetail, fetchEventDetail, fetchReadyDetail } = useGemini();
   const toast = useToast();
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const inputDate = watch("when")
   const inputCelebration = watch("text")
+  const inputPrefecture = watch("prefecture")
+  const inputCity = watch("city")
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedItem, setSelectedItem] = React.useState<string | null>(null);
   const [itemDetails, setItemDetails] = React.useState<{
@@ -101,6 +107,28 @@ export const Top: React.FC = () => {
     isOpen: isEventModalOpen,
     onOpen: onEventModalOpen,
     onClose: onEventModalClose
+  } = useDisclosure();
+
+  const [selectedReady, setSelectedReady] = React.useState<string | null>(null);
+  const [readyDetails, setReadyDetails] = React.useState<{
+    title: string;
+    overview: string;
+    timeline: string;
+    steps: Array<{
+      step: string;
+      description: string;
+      duration: string;
+      tips: string[];
+    }>;
+    required_items: string[];
+    estimated_cost: string;
+    considerations: string[];
+  } | null>(null);
+  const [isLoadingReadyDetails, setIsLoadingReadyDetails] = React.useState(false);
+  const {
+    isOpen: isReadyModalOpen,
+    onOpen: onReadyModalOpen,
+    onClose: onReadyModalClose
   } = useDisclosure();
 
   const handleItemClick = async (item: string) => {
@@ -132,7 +160,12 @@ export const Top: React.FC = () => {
     onEventModalOpen(); // 先にモーダルを開く
     
     try {
-      const details = await fetchEventDetail(inputCelebration, eventName);
+      const details = await fetchEventDetail({
+        celebration: inputCelebration,
+        event: eventName,
+        prefecture: inputPrefecture,
+        city: inputCity
+      });
       setEventDetails(details.eventDetails);
     } catch (error) {
       toast({
@@ -145,6 +178,28 @@ export const Top: React.FC = () => {
       onEventModalClose(); // エラー時はモーダルを閉じる
     } finally {
       setIsLoadingEventDetails(false);
+    }
+  };
+
+  const handleReadyClick = async (item: string) => {
+    setSelectedReady(item);
+    setIsLoadingReadyDetails(true);
+    onReadyModalOpen();
+    
+    try {
+      const details = await fetchReadyDetail(inputCelebration, item);
+      setReadyDetails(details);
+    } catch (error) {
+      toast({
+        title: 'エラーが発生しました',
+        description: '準備詳細の取得に失敗しました',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      onReadyModalClose();
+    } finally {
+      setIsLoadingReadyDetails(false);
     }
   };
 
@@ -211,6 +266,32 @@ export const Top: React.FC = () => {
                   />
                 </FormControl>
 
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  <FormControl>
+                    <FormLabel>都道府県（任意）</FormLabel>
+                    <Select
+                      {...register("prefecture")}
+                      placeholder="都道府県を選択"
+                      size="lg"
+                    >
+                      {PREFECTURES.map((pref) => (
+                        <option key={pref} value={pref}>
+                          {pref}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>市区町村（任意）</FormLabel>
+                    <Input
+                      {...register("city")}
+                      placeholder="例: 渋谷区"
+                      size="lg"
+                    />
+                  </FormControl>
+                </SimpleGrid>
+
                 <Button
                   type="submit"
                   colorScheme="blue"
@@ -249,10 +330,22 @@ export const Top: React.FC = () => {
                   <CardBody>
                     <List spacing={3}>
                       {response.ready.map((item, index) => (
-                        <ListItem key={index} display="flex" alignItems="center">
-                          <ListIcon as={CheckCircleIcon} color="green.500" />
-                          {item}
-                        </ListItem>
+                        <Tooltip
+                          key={index}
+                          label="クリックして詳しく見る"
+                          placement="top-start"
+                        >
+                          <ListItem
+                            cursor="pointer"
+                            onClick={() => handleReadyClick(item)}
+                            _hover={{ color: 'blue.500' }}
+                            display="flex"
+                            alignItems="center"
+                          >
+                            <ListIcon as={CheckCircleIcon} color="green.500" />
+                            {item}
+                          </ListItem>
+                        </Tooltip>
                       ))}
                     </List>
                   </CardBody>
@@ -460,7 +553,8 @@ export const Top: React.FC = () => {
         </ModalContent>
       </Modal>
 
-      <Modal 
+      <Modal
+        closeOnOverlayClick={false}
         isOpen={isEventModalOpen} 
         onClose={() => {
           onEventModalClose();
@@ -586,6 +680,95 @@ export const Top: React.FC = () => {
           </ModalBody>
           <ModalFooter>
             <Button colorScheme="blue" onClick={onEventModalClose}>
+              閉じる
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        closeOnOverlayClick={false}
+        isOpen={isReadyModalOpen}
+        onClose={() => {
+          onReadyModalClose();
+          setSelectedReady(null);
+          setReadyDetails(null);
+        }}
+        size="xl"
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            {selectedReady && `${selectedReady}の詳細情報`}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {isLoadingReadyDetails ? (
+              <VStack py={8} spacing={4}>
+                <Spinner size="xl" color="blue.500" />
+                <Text>詳細情報を取得中...</Text>
+              </VStack>
+            ) : readyDetails && (
+              <VStack spacing={6} align="stretch">
+                <Box>
+                  <Heading size="sm">概要</Heading>
+                  <Text mt={2}>{readyDetails.overview}</Text>
+                </Box>
+                <Box>
+                  <Heading size="sm">タイムライン</Heading>
+                  <Text mt={2}>{readyDetails.timeline}</Text>
+                </Box>
+                <Box>
+                  <Heading size="sm">手順</Heading>
+                  <List spacing={4} mt={2}>
+                    {readyDetails.steps.map((step, idx) => (
+                      <ListItem key={idx} p={4} borderWidth="1px" borderRadius="md">
+                        <VStack align="stretch" spacing={2}>
+                          <Heading size="xs">{step.step}</Heading>
+                          <Text>{step.description}</Text>
+                          <Text color="gray.600" fontSize="sm">所要時間: {step.duration}</Text>
+                          {step.tips.length > 0 && (
+                            <Box>
+                              <Text fontWeight="bold">Tips:</Text>
+                              <List styleType="disc" pl={4}>
+                                {step.tips.map((tip, tipIdx) => (
+                                  <ListItem key={tipIdx}>{tip}</ListItem>
+                                ))}
+                              </List>
+                            </Box>
+                          )}
+                        </VStack>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+                <SimpleGrid columns={2} spacing={4}>
+                  <Box>
+                    <Heading size="sm">必要なもの</Heading>
+                    <List styleType="disc" pl={4} mt={2}>
+                      {readyDetails.required_items.map((item, idx) => (
+                        <ListItem key={idx}>{item}</ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                  <Box>
+                    <Heading size="sm">見積もり費用</Heading>
+                    <Text mt={2}>{readyDetails.estimated_cost}</Text>
+                  </Box>
+                </SimpleGrid>
+                <Box>
+                  <Heading size="sm">注意点</Heading>
+                  <List styleType="disc" pl={4} mt={2}>
+                    {readyDetails.considerations.map((item, idx) => (
+                      <ListItem key={idx}>{item}</ListItem>
+                    ))}
+                  </List>
+                </Box>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" onClick={onReadyModalClose}>
               閉じる
             </Button>
           </ModalFooter>

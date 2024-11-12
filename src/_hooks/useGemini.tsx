@@ -26,7 +26,7 @@ interface ItemDetail {
   estimated_budget: string;
   when_to_prepare: string;
   notes: string;
-  recommendations: string; // 運気やおすすめポイントを追加
+  recommendations: string;
 }
 
 interface EventDetail {
@@ -74,6 +74,13 @@ interface EventDetail {
     custom: string;
     description: string;
   }>;
+}
+
+interface fetchEventDetailInput {
+  celebration: string;
+  event: string;
+  prefecture?: string;
+  city?: string;
 }
 
 export const useGemini = () => {
@@ -142,12 +149,9 @@ export const useGemini = () => {
     }
   }
 
-  const fetchEventDetail = async (celebration: string, eventName: string) => {
+  const fetchEventDetail = async ({ celebration, event, prefecture, city }: fetchEventDetailInput) => {
     try {
-      const params = new URLSearchParams({ 
-        celebration: celebration,
-        event: eventName
-      });
+      const params = new URLSearchParams({ celebration, event });
       const response = await fetch(
         `https://eventdetail-cti2s6vveq-an.a.run.app?${params}`,
       );
@@ -155,6 +159,21 @@ export const useGemini = () => {
       return data;
     } catch (error) {
       console.error('Error fetching event details:', error);
+      throw error;
+    }
+  }
+
+  const fetchReadyDetail = async (inputCelebration: string, text: string) => {
+    try {
+      const params = new URLSearchParams({ celebration: inputCelebration, text: text });
+      const response = await fetch(
+        `https://readydetail-cti2s6vveq-an.a.run.app?${params}`,
+      );
+      const data = await response.json();
+      console.log(data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching ready details:', error);
       throw error;
     }
   }
@@ -168,5 +187,6 @@ export const useGemini = () => {
     fetchCelebrationPlan,
     fetchItemDetail,
     fetchEventDetail,
+    fetchReadyDetail
   }
 }

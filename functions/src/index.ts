@@ -12,6 +12,70 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const allowDomain = process.env.ALLOW_DOMAIN
 
+const fetch = require('node-fetch');
+const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
+
+// 地域の緯度経度を取得する関数を追加
+async function getLocationCoordinates(prefecture: string, city: string) {
+  try {
+    const query = `${prefecture}${city}`;
+    const response = await fetch(
+      `http://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)},JP&limit=1&appid=${OPENWEATHER_API_KEY}`
+    );
+    const data = await response.json();
+    
+    if (data && data[0]) {
+      return {
+        lat: data[0].lat,
+        lon: data[0].lon
+      };
+    }
+    // デフォルト値（東京）
+    return {
+      lat: 35.6762,
+      lon: 139.6503
+    };
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    // デフォルト値（東京）
+    return {
+      lat: 35.6762,
+      lon: 139.6503
+    };
+  }
+}
+
+// getWeatherForecast関数を更新
+async function getWeatherForecast(date: string, prefecture: string, city: string) {
+  try {
+    const { lat, lon } = await getLocationCoordinates(prefecture, city);
+    const response = await fetch(
+      `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`
+    );
+    const data = await response.json();
+    
+    // 指定された日付の天気予報を探す
+    const targetDate = new Date(date);
+    const forecast = data.list.find((item: any) => {
+      const itemDate = new Date(item.dt * 1000);
+      return itemDate.toDateString() === targetDate.toDateString();
+    });
+
+    if (forecast) {
+      return {
+        temp: Math.round(forecast.main.temp),
+        weather: forecast.weather[0].main,
+        description: forecast.weather[0].description,
+        probability: Math.round(forecast.pop * 100)
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Weather forecast error:', error);
+    return null;
+  }
+}
+
 async function gemini(prompt: string){
   // For text-only input, use the gemini-pro model
   const model = genAI.getGenerativeModel({ 
@@ -26,17 +90,35 @@ const jsonReplace = (str: string) => {
   return str.replace('JSON', '').replace('json', '').replace('```', '').replace('```', '');
 }
 
-const createPrompt = (text: string, who: string, when: string | null): string => {
+const createPrompt = (text: string, who: string, when: string | null, weatherData: any[]): string => {
+  const weatherInstruction = weatherData.length > 0
+    ? `\n天気予報情報も考慮して提案してください：\n${
+        weatherData
+          .filter(w => w.forecast)
+          .map(w => `${w.date}: 気温${w.forecast.temp}℃、${w.forecast.description}、降水確率${w.forecast.probability}%`)
+          .join('\n')
+      }`
+    : '';
+
   const scheduleInstruction = when 
-  ? `日程は${when}の予定です。scheduleキーは空の配列[]を返してください。` 
-  : `日程は未定です。以下の期間で3～5個の候補日を提案してください：
+    ? `日程は${when}の予定です。scheduleキーは空の配列[]を返してください。` 
+    : `日程は未定です。以下の期間で3～5個の候補日を提案してください:
      - 開始日: ${new Date().toISOString().split('T')[0]}
      - 終了日: ${new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-     
-     "schedule": [
-       { "date": "2024-05-01", "reason": "具体的な理由（季節/天候/暦/慣習など）" },
-       { "date": "2024-05-03", "reason": "具体的な理由（参加のしやすさ/意味など）" }
-     ]`;
+      ${weatherInstruction}
+       
+       "schedule": [
+         { 
+           "date": "2024-05-01", 
+           "reason": "具体的な理由（季節/天候/暦/慣習など）"
+           ${weatherData.length > 0 ? `,
+           "weather": {
+             "temp": "予想気温",
+             "description": "天気予報",
+             "probability": "降水確率"
+           }` : ''}
+         }
+       ]`;
 
   return `
   あなたは日本のお祝い事のプランニングエキスパートです。
@@ -90,15 +172,13 @@ const createPrompt = (text: string, who: string, when: string | null): string =>
 
   例えば「結婚式」の場合：
   - ready: ["会場の下見", "招待状の準備", "衣装の選定"]のように具体的に
-  - items: 必要な準備物を具体的に列挙、身に着けるもの・持っていくもの・事前に準備するもの全てを含める
+  - items: 必要な準備物を具体的に列挙���身に着けるもの・持っていくもの・事前に準備するもの全てを含める
   - events: ["結納", "前撮り", "披露宴", "二次会"]のようにイベント名のみを列挙
   - schedule: 日取りの候補と理由を明確に
   - message: お祝いの意味や準備のポイントを具体的に
 
   返答は必ずこのJSON形式のみとし、追加の説明や会話は含めないでください。`;
 };
-
-
 
 export const AskCelebration = onRequest(async (request: Request, response: Response) => {
   response.set('Access-Control-Allow-Origin', allowDomain); // localhostを許可
@@ -108,18 +188,46 @@ export const AskCelebration = onRequest(async (request: Request, response: Respo
     const text = String(request.query.text) || '';
     const who = String(request.query.who) || '';
     const when = request.query?.when ? String(request.query.when) : null;
-    const prompt = createPrompt(text, who, when);
+    const prefecture = request.query.prefecture ? String(request.query.prefecture) : null;
+    const city = request.query.city ? String(request.query.city) : null;
+
+    // 地域情報が両方ある場合のみ天気予報を取得
+    let weatherData: { date: string; forecast: any }[] = [];
+    if (prefecture && city) {
+      const dates = Array.from({length: 5}, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        return date.toISOString().split('T')[0];
+      });
+
+      weatherData = await Promise.all(
+        dates.map(async (date) => ({
+          date,
+          forecast: await getWeatherForecast(date, prefecture, city)
+        }))
+      );
+    }
+
+    const prompt = createPrompt(text, who, when, weatherData);
     const result = await gemini(prompt);
     const decoded = jsonReplace(result);
     const parsed = JSON.parse(decoded);
-    // バリデーション
-    if (!parsed.message || !Array.isArray(parsed.ready) || parsed.ready.length < 3) {
-      throw new Error("Invalid response format");
+    
+    // 天気予報情報の追加（地域情報がある場合のみ）
+    if (Array.isArray(parsed.schedule) && weatherData.length > 0) {
+      parsed.schedule = parsed.schedule.map((item: any) => {
+        const weatherInfo = weatherData.find(w => w.date === item.date)?.forecast;
+        return {
+          ...item,
+          weather: weatherInfo || null
+        };
+      });
     }
-    response.send(decoded);
+
+    response.send(JSON.stringify(parsed));
   } catch (error: any) {
     response.send(JSON.stringify({
-      message: "申し訳ありません。プランの生成中にエラーが発生しました。",
+      message: "申し訳ありません��、プランの生成中にエラーが発生しました。",
       schedule: [],
       ready: [],
       events: [],
@@ -135,7 +243,7 @@ export const isCelebration = onRequest(async (request: Request, response: Respon
   logger.info("Hello logs!", {structuredData: true});
   const text = String(request.query.text) || '';
   const prompt = `お祝い事の判定を行います。${text}がお祝い事であるかどうかを判定してください。;
-                  以下のJSON��キーマーで返答してください。
+                  以下のJSONキーで返答してください。
                   { "check": boolean }`;
   const result = await gemini(prompt);
   const decoded = jsonReplace(result);
@@ -205,7 +313,6 @@ const getDateRange = () => {
   return { startDate, endDate };
 };
 
-// 土日祝日判定用の関数を追加
 const getUpcomingWeekends = () => {
   const weekends = [];
   const today = new Date();
@@ -229,8 +336,37 @@ export const eventDetail = onRequest(async (request: Request, response: Response
   try {
     const eventName = String(request.query.event) || '';
     const celebration = String(request.query.celebration) || '';
+    const prefecture = request.query.prefecture ? String(request.query.prefecture) : null;
+    const city = request.query.city ? String(request.query.city) : null;
     const { startDate, endDate } = getDateRange();
     const weekends = getUpcomingWeekends();
+
+    // 天気予報データの取得（地域情報がある場合のみ）
+    let weatherData: { date: string; forecast: any }[] = [];
+    if (prefecture && city) {
+      const next14Days = Array.from({length: 14}, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        return date.toISOString().split('T')[0];
+      });
+
+      weatherData = await Promise.all(
+        next14Days.map(async (date) => ({
+          date,
+          forecast: await getWeatherForecast(date, prefecture, city)
+        }))
+      );
+    }
+
+    // 天気予報の情報をプロンプトに追加
+    const weatherInfo = weatherData.length > 0
+      ? `\n\n利用可能な天気予報情報：\n${
+          weatherData
+            .filter(w => w.forecast)
+            .map(w => `${w.date}: 気温${w.forecast.temp}℃、${w.forecast.description}、降水確率${w.forecast.probability}%`)
+            .join('\n')
+        }\n\n天気予報も考慮して最適な日時を提案してください。`
+      : '';
 
     const prompt = `
     あなたは日本のお祝い事の準備アドバイザーです。
@@ -241,6 +377,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
     - 終了日: ${endDate}
     
     土日祝日の候補：${weekends.slice(0, 10).join(', ')}など
+    ${weatherInfo}
 
     以下のJSON形式で返答してください：
     {
@@ -260,7 +397,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
             ],
             "reason": "この日程を推奨する理由（季節/気候/意味/参加のしやすさなど）",
             "is_holiday": boolean,
-            "considerations": "気候や混雑状況、準備に必要な期間なども含めた考慮事項"
+            "considerations": "気候や混雑状況、準備に必要な期間なども含め���考慮事項"
           }
         ],
         "venue_suggestions": [
@@ -279,7 +416,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
               "amount": "金額の目安"
             }
           ]
-        ],
+        },
         "required_preparations": [
           {
             "task": "準備タスク",
@@ -308,7 +445,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
 
     注意事項：
     1. recommended_datesは必ず${startDate}から${endDate}までの期間で提案してください
-    2. 土日祝日を優先して提案してください（上記の候補日を参考）
+    2. 土日祝日を優先して提案してください（上記の候補日を参考に）
     3. 各候補日について、季節・天候・混雑状況なども含めた具体的な理由を記載してください
     4. 提案する日付は最低3つ以上としてください
     5. is_holidayは土日祝日の場合はtrue、平日の場合はfalseとしてください
@@ -322,28 +459,110 @@ export const eventDetail = onRequest(async (request: Request, response: Response
 
     const result = await gemini(prompt);
     const decoded = jsonReplace(result);
-    
-    // レスポンスの日付を検証
     const data = JSON.parse(decoded);
+
+    // レスポンスの日付を検証と天気予報情報の追加
     if (data.eventDetails?.recommended_dates) {
       const today = new Date().toISOString().split('T')[0];
       data.eventDetails.recommended_dates = data.eventDetails.recommended_dates
         .filter((d: { date: string }) => d.date > today)
-        .sort((a: { date: string }, b: { date: string }) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        .sort((a: { date: string }, b: { date: string }) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .map((date: any) => {
+          // 天気予報情報がある場合は追加
+          const weatherInfo = weatherData.find(w => w.date === date.date)?.forecast;
+          return {
+            ...date,
+            weather: weatherInfo || null
+          };
+        });
       
-      // 提案された日付が少なすぎる場合、デフォルトの週末を追加
+      // 提案された日付が少なすぎる場合の処理
       if (data.eventDetails.recommended_dates.length < 3) {
-        const defaultWeekends = weekends.slice(0, 3).map(date => ({
-          date,
-          reason: "週末の予定が立てやすい日程として提案",
-          is_holiday: true,
-          considerations: "多くの参加者が参加しやすい週末の日程です"
-        }));
+        const defaultWeekends = weekends.slice(0, 3).map(date => {
+          const weatherInfo = weatherData.find(w => w.date === date)?.forecast;
+          return {
+            date,
+            reason: "週末の予定が立てやすい日程として提案",
+            is_holiday: true,
+            considerations: "多くの参加者が参加しやすい週末の日程です",
+            weather: weatherInfo || null,
+            time_slots: [
+              {
+                start_time: "10:00",
+                end_time: "12:00",
+                reason: "午前中の時間帯で比較的参加しやすい時間"
+              },
+              {
+                start_time: "14:00",
+                end_time: "16:00",
+                reason: "午後の時間帯で比較的参加しやすい時間"
+              }
+            ]
+          };
+        });
         data.eventDetails.recommended_dates = defaultWeekends;
       }
     }
     
     response.send(JSON.stringify(data));
+  } catch (error: any) {
+    response.send(JSON.stringify({
+      error: error.message
+    }));
+  }
+});
+
+export const readyDetail = onRequest(async (request: Request, response: Response) => {
+  response.set('Access-Control-Allow-Origin', allowDomain);
+  response.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST');
+  response.set('Access-Control-Allow-Headers', 'Content-Type'); 
+
+  try {
+    const text = String(request.query.text) || '';
+    const celebration = String(request.query.celebration) || '';
+
+    const prompt = `
+    あなたは日本のお祝い事の準備アドバイザーです。
+    ${celebration}の準備項目として「${text}」に関する詳細情報を提供してください。
+
+    以下のJSON形式で返答してください：
+
+    {
+      "title": "準備項目の名前",
+      "overview": "準備の概要説明",
+      "timeline": "準備開始から完了までの推奨タイムライン",
+      "steps": [
+        {
+          "step": "手順のタイトル",
+          "description": "詳細な手順の説明",
+          "duration": "所要時間の目安",
+          "tips": [
+            "実行時のコツや注意点"
+          ]
+        }
+      ],
+      "required_items": [
+        "必要な物品やサービス"
+      ],
+      "estimated_cost": "費用の目安",
+      "considerations": [
+        "準備を進める上での注意点や配慮事項"
+      ]
+    }
+
+    注意事項：
+    1. 手順は具体的で実行可能な内容にしてください
+    2. 費用は具体的な金額範囲で記載してください
+    3. タイムラインは具体的な期間や日数で記載してください
+    4. 各ステップの所要時間は現実的な目安を提供してください
+    5. 準備に必要な物品やサービスは漏れなく記載してください
+    6. 日本の文化や慣習に配慮した内容を含めてください
+    7. 初めての人でも理解できる詳しい説明を心がけてください
+    `;
+
+    const result = await gemini(prompt);
+    const decoded = jsonReplace(result);
+    response.send(decoded);
   } catch (error: any) {
     response.send(JSON.stringify({
       error: error.message
