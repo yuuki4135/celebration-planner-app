@@ -22,23 +22,10 @@ import {
   Tooltip,
   Center,
 } from '@chakra-ui/react';
-import { CalendarIcon, ExternalLinkIcon } from '@chakra-ui/icons';
+import { CalendarIcon, ExternalLinkIcon, SearchIcon } from '@chakra-ui/icons';
 import { RecommendedDate, EventDetail } from '@/types/celebrationTypes';
 import { createGoogleCalendarUrl, createYahooCalendarUrl } from '@/utils/calendar';
-
-interface Shop {
-  name: string;
-  address: string;
-  rating: null;
-  place_id: string;
-  location: {
-    lat: number;
-    lon: number;
-  };
-  category: string;
-  website: string | null;
-  phone: string | null;
-}
+import { usePlace } from '@/hooks/usePlace';
 
 interface EventDetailModalProps {
   isOpen: boolean;
@@ -59,37 +46,26 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   prefecture,
   city,
 }) => {
-  const [relatedShops, setRelatedShops] = React.useState<Shop[]>([]);
-  const [isLoadingShops, setIsLoadingShops] = React.useState(false);
+  const { searchPlaces, resetPlaces, places, isLoading: isLoadingPlaces, error: placesError } = usePlace();
+  const [showPlaces, setShowPlaces] = React.useState(false);
 
-  const fetchRelatedShops = React.useCallback(async () => {
-    if (!selectedEvent || !prefecture || !city) return;
+  const handleSearchPlaces = async () => {
+    if (!prefecture || !city || !selectedEvent) return;
+    await searchPlaces(prefecture, city, selectedEvent);
+    setShowPlaces(true);
+  };
 
-    setIsLoadingShops(true);
-    try {
-      const response = await fetch(
-        `/api/searchRelatedShops?eventType=${encodeURIComponent(selectedEvent)}&prefecture=${encodeURIComponent(prefecture)}&city=${encodeURIComponent(city)}`
-      );
-      const data = await response.json();
-      setRelatedShops(data.shops);
-    } catch (error) {
-      console.error('Failed to fetch shops:', error);
-    } finally {
-      setIsLoadingShops(false);
-    }
-  }, [selectedEvent, prefecture, city]);
-
-  React.useEffect(() => {
-    if (isOpen && prefecture && city) {
-      fetchRelatedShops();
-    }
-  }, [isOpen, fetchRelatedShops]);
+  const closeModal = () => {
+    setShowPlaces(false);
+    resetPlaces();
+    onClose();
+  }
 
   return (
     <Modal
       closeOnOverlayClick={false}
       isOpen={isOpen} 
-      onClose={onClose}
+      onClose={closeModal}
       size="xl"
     >
       <ModalOverlay />
@@ -193,60 +169,69 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                   ))}
                 </List>
               </Box>
+              
+              {/* 場所検索セクション */}
               {prefecture && city && (
-                <Box mt={6}>
-                  <Heading size="md" mb={4}>関連施設</Heading>
-                  {isLoadingShops ? (
-                    <Center py={4}>
-                      <Spinner />
-                    </Center>
-                  ) : (
-                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                      {relatedShops.map((shop) => (
-                        <Box
-                          key={shop.place_id}
-                          p={4}
-                          borderWidth="1px"
-                          borderRadius="md"
-                          _hover={{ shadow: 'md' }}
-                        >
-                          <Heading size="sm" mb={2}>{shop.name}</Heading>
-                          <Text fontSize="sm" color="gray.600" mb={2}>{shop.address}</Text>
-                          <HStack spacing={2} mb={2}>
-                            <Badge colorScheme="blue">{shop.category}</Badge>
-                          </HStack>
-                          <VStack align="start" spacing={2}>
-                            {shop.phone && (
-                              <Text fontSize="sm">
-                                📞 {shop.phone}
-                              </Text>
-                            )}
-                            {shop.website && (
-                              <Button
-                                size="sm"
-                                rightIcon={<ExternalLinkIcon />}
-                                as="a"
-                                href={shop.website}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                ウェブサイト
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              rightIcon={<ExternalLinkIcon />}
-                              as="a"
-                              href={`https://www.openstreetmap.org/?mlat=${shop.location.lat}&mlon=${shop.location.lon}#map=17/${shop.location.lat}/${shop.location.lon}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                <Box>
+                  <HStack justify="space-between" mb={4}>
+                    <Heading size="sm">関連するお店・会場</Heading>
+                    <Button
+                      leftIcon={<SearchIcon />}
+                      colorScheme="blue"
+                      size="sm"
+                      onClick={handleSearchPlaces}
+                      isLoading={isLoadingPlaces}
+                    >
+                      周辺のお店を検索
+                    </Button>
+                  </HStack>
+                  
+                  {showPlaces && (
+                    <Box>
+                      {placesError ? (
+                        <Text color="red.500">{placesError}</Text>
+                      ) : places.length > 0 ? (
+                        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                          {places.map((place) => (
+                            <Box
+                              key={place.placeId}
+                              p={4}
+                              borderWidth="1px"
+                              borderRadius="md"
+                              _hover={{ boxShadow: 'md' }}
                             >
-                              地図を表示
-                            </Button>
-                          </VStack>
-                        </Box>
-                      ))}
-                    </SimpleGrid>
+                              <VStack align="stretch" spacing={2}>
+                                <Heading size="xs">{place.name}</Heading>
+                                <Text fontSize="sm">{place.address}</Text>
+                                <HStack>
+                                  <Text fontSize="sm">
+                                    評価: {place.rating} ({place.userRatingsTotal}件)
+                                  </Text>
+                                  {place.openNow !== undefined && (
+                                    <Badge colorScheme={place.openNow ? 'green' : 'red'}>
+                                      {place.openNow ? '営業中' : '営業時間外'}
+                                    </Badge>
+                                  )}
+                                </HStack>
+                                <Button
+                                  as="a"
+                                  href={`https://www.google.com/maps/place/?q=place_id:${place.placeId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  size="sm"
+                                  rightIcon={<ExternalLinkIcon />}
+                                  variant="outline"
+                                >
+                                  地図を表示
+                                </Button>
+                              </VStack>
+                            </Box>
+                          ))}
+                        </SimpleGrid>
+                      ) : (
+                        <Text>お店が見つかりませんでした。</Text>
+                      )}
+                    </Box>
                   )}
                 </Box>
               )}
@@ -254,7 +239,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
           )}
         </ModalBody>
         <ModalFooter>
-          <Button colorScheme="blue" onClick={onClose}>
+          <Button colorScheme="blue" onClick={closeModal}>
             閉じる
           </Button>
         </ModalFooter>

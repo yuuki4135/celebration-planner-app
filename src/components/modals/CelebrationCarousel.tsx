@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Box, IconButton } from '@chakra-ui/react';
+import { Box, IconButton, useBreakpointValue } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
@@ -10,7 +10,16 @@ interface CelebrationCarouselProps {
 
 export const CelebrationCarousel = ({ children }: CelebrationCarouselProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const itemsPerPage = 4;
+  
+  const itemsPerPage = useBreakpointValue({
+    base: 2,    // モバイル（~480px）
+    xs: 1,      // 小さいモバイル（~320px）
+    sm: 2,      // タブレット（~768px）
+    md: 3,      // タブレット（~992px）
+    lg: 4,      // 小さいデスクトップ（~1280px）
+    xl: 5,      // デスクトップ（1280px~）
+  }) || 1;
+  
   const totalPages = Math.ceil(children.length / itemsPerPage);
 
   const navigate = (direction: number) => {
@@ -49,6 +58,7 @@ export const CelebrationCarousel = ({ children }: CelebrationCarouselProps) => {
               display: 'grid',
               gridTemplateColumns: `repeat(${itemsPerPage}, 1fr)`,
               gap: '1rem',
+              width: '100%',
             }}
           >
             {children.slice(

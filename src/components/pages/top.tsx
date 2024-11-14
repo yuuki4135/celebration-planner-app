@@ -146,7 +146,7 @@ export const Top: React.FC = () => {
   const handleEventClick = async (eventName: string) => {
     setSelectedEvent(eventName);
     setIsLoadingEventDetails(true);
-    onEventModalOpen(); // 先にモーダルを開く
+    onEventModalOpen();
     
     try {
       const details = await fetchEventDetail({
@@ -190,18 +190,6 @@ export const Top: React.FC = () => {
     }
   };
 
-  const scrollLeft = (ref: HTMLDivElement | null) => {
-    if (ref) {
-      ref.scrollBy({ left: -300, behavior: 'smooth' });
-    }
-  };
-
-  const scrollRight = (ref: HTMLDivElement | null) => {
-    if (ref) {
-      ref.scrollBy({ left: 300, behavior: 'smooth' });
-    }
-  };
-
   const onSubmit: SubmitHandler<FormInput> = async (data) => {
     try{
       const response = await fetchCelebrationPlan(data);
@@ -224,7 +212,7 @@ export const Top: React.FC = () => {
         isClosable: true,
       });
     }
-  };
+  };   
 
   return (
     <Container maxW="7xl" py={8}>

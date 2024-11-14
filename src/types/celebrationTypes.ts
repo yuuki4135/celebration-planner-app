@@ -1,4 +1,3 @@
-
 export interface ItemDetail {
   name: string;
   description: string;
@@ -35,4 +34,18 @@ export interface FormInput {
   when: string;
   prefecture?: string;
   city?: string;
+}
+
+export interface Shop {
+  name: string;
+  address: string;
+  rating: null;
+  place_id: string;
+  location: {
+    lat: number;
+    lon: number;
+  };
+  category: string;
+  website: string | null;
+  phone: string | null;
 }
