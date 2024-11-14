@@ -37,7 +37,7 @@ import { EventDetailModal } from '@/components/modals/EventDetailModal';
 import { ReadyDetailModal } from '@/components/modals/ReadyDetailModal';
 
 export const Top: React.FC = () => {
-  const { register, handleSubmit, watch } = useForm<FormInput>();
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormInput>();
   const { fetchCelebrationPlan, isLoading, showResults, response, fetchItemDetail, fetchEventDetail, fetchReadyDetail, fetchRelatedItems } = useGemini();
   const toast = useToast();
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -226,14 +226,15 @@ export const Top: React.FC = () => {
           <CardBody>
             <form onSubmit={handleSubmit(onSubmit)}>
               <Stack spacing={4}>
-                <FormControl isRequired>
+                <FormControl isInvalid={Boolean(errors.text)}>
                   <FormLabel>お祝い事の種類</FormLabel>
                   <Input
-                    {...register("text", { required: true } ) }
+                    {...register("text", { required: "お祝い事を入力してください" })}
                     placeholder="例: 結婚式、誕生日、出産祝い"
                     size="lg"
                   />
                 </FormControl>
+                <h1>{JSON.stringify(errors)}</h1>
 
                 <FormControl isRequired>
                   <FormLabel>誰のためのお祝い？</FormLabel>

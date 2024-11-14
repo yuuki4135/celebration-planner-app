@@ -7,5 +7,6 @@ export default {
   },
   moduleNameMapper: {
     "\\.(css|less)$": "identity-obj-proxy",
+    '^@/(.*)$': '<rootDir>/src/$1'
   },
 };
