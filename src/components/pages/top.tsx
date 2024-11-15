@@ -26,6 +26,7 @@ import {
   HStack,
   IconButton,
   Select,
+  FormErrorMessage
 } from '@chakra-ui/react';
 import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from '@chakra-ui/icons';
 import { useGemini } from '@/hooks/useGemini';
@@ -212,7 +213,10 @@ export const Top: React.FC = () => {
         isClosable: true,
       });
     }
-  };   
+  };
+  React.useEffect(() => {
+    console.log(errors);
+  }, [errors]);
 
   return (
     <Container maxW="7xl" py={8}>
@@ -233,16 +237,16 @@ export const Top: React.FC = () => {
                     placeholder="例: 結婚式、誕生日、出産祝い"
                     size="lg"
                   />
+                  <FormErrorMessage>{errors.text && errors.text.message}</FormErrorMessage>
                 </FormControl>
-                <h1>{JSON.stringify(errors)}</h1>
-
-                <FormControl isRequired>
+                <FormControl isInvalid={Boolean(errors.who)}>
                   <FormLabel>誰のためのお祝い？</FormLabel>
                   <Input
                     placeholder="例: 娘、息子、恋人"
-                    {...register("who", { required: true } ) }
+                    {...register("who", { required: "誰のためのお祝いか入力してください" })}
                     size="lg"
                   />
+                  <FormErrorMessage>{errors.who && errors.who.message}</FormErrorMessage>
                 </FormControl>
 
                 <FormControl>
