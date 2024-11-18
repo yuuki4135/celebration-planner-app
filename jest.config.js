@@ -9,4 +9,7 @@ export default {
     "\\.(css|less)$": "identity-obj-proxy",
     '^@/(.*)$': '<rootDir>/src/$1'
   },
+  globals: {
+    IS_REACT_ACT_ENVIRONMENT : false
+  }
 };

@@ -136,6 +136,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                               leftIcon={<SearchIcon />}
                               isLoading={searchingItemId === item.name}
                               onClick={() => handleSearchItemProducts(item.name)}
+                              data-testid={`search-item-${itemIdx}`}
                             >
                               商品を探す
                             </Button>

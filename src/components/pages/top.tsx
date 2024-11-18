@@ -214,9 +214,6 @@ export const Top: React.FC = () => {
       });
     }
   };
-  React.useEffect(() => {
-    console.log(errors);
-  }, [errors]);
 
   return (
     <Container maxW="7xl" py={8}>
@@ -265,6 +262,7 @@ export const Top: React.FC = () => {
                       {...register("prefecture")}
                       placeholder="都道府県を選択"
                       size="lg"
+                      data-testid="prefecture"
                     >
                       {PREFECTURES.map((pref) => (
                         <option key={pref} value={pref}>
@@ -280,6 +278,7 @@ export const Top: React.FC = () => {
                       {...register("city")}
                       placeholder="例: 渋谷区"
                       size="lg"
+                      data-testid="city"
                     />
                   </FormControl>
                 </SimpleGrid>
