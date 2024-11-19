@@ -11,24 +11,44 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: 20
-      # フロントエンドのビルド
-      - name: Build Frontend
-        run: npm ci && npm run build
-      - name: Test Frontend
+          cache: 'npm'
+
+      # プロジェクトルートの依存関係をインストール
+      - name: Install Dependencies
+        run: npm ci
+
+      # プロジェクトのビルド
+      - name: Build
+        run: npm run build
+
+      # テストの実行
+      - name: Run Tests
         run: npm run test
-      # Functionsのビルド
-      - name: Build Functions
-        run: cd functions && npm install && npm run build
+
+      # Functions用の依存関係をインストール
+      - name: Install Functions Dependencies
+        run: cd functions && npm ci
+
       # Firebase CLIのインストール
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
-      # デプロイ
-      - name: Deploy to Firebase
-        run: firebase deploy --only hosting,functions
+
+      # Firebase Functionsのデプロイ
+      - name: Deploy to Firebase Functions
+        run: |
+          firebase functions:config:set \
+            gemini.api_key="$GEMINI_API_KEY" \
+            domain.allow="$ALLOW_DOMAIN" \
+            openweather.api_key="$OPENWEATHER_API_KEY" \
+            rakuten.app_id="$RAKUTEN_APP_ID" \
+            google.places_api_key="$GOOGLE_PLACES_API_KEY" \
+            --token "$FIREBASE_TOKEN"
+          firebase deploy --only functions --token "$FIREBASE_TOKEN"
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -36,3 +56,12 @@ jobs:
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
           RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+
+      # Firebase Hostingのデプロイ
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CELEBRATION_PLANNER }}
+          channelId: live
+          projectId: celebration-planner
