@@ -17,9 +17,6 @@ jobs:
           node-version: 20
       - name: Build
         run: npm ci && npm run build
-        # env:
-        #   VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-        #   VITE_SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
       - name: test
         run: npm run test
       - name: Deploy
@@ -29,4 +26,3 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CELEBRATION_PLANNER }}
           channelId: live
           projectId: celebration-planner
-
