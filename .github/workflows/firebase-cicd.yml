@@ -36,7 +36,7 @@ jobs:
 
       # サービスアカウントキーの設定
       - name: Create SA Key File
-        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > ${{ github.workspace }}/sa-key.json
+        run: echo '${{ secrets.FIREBASE_TOKEN_JSON }}' > ${{ github.workspace }}/sa-key.json
 
       # Firebase CLIのインストール
       - name: Install Firebase CLI
