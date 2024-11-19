@@ -38,30 +38,30 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      # サービスアカウントの認証情報をファイルに書き出し
-      - name: Create Service Account Key File
-        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CELEBRATION_PLANNER }}' > ${{ github.workspace }}/service-account.json
-
-      # 環境変数の設定とFunctions/Hostingのデプロイ
-      - name: Deploy to Firebase
+      # Firebase Functionsのデプロイ
+      - name: Deploy to Firebase Functions
         run: |
-          # 環境変数の設定
-          export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/service-account.json"
-          
-          # Functionsの環境変数を設定
           firebase functions:config:set \
-            gemini.api_key="${{ secrets.GEMINI_API_KEY }}" \
-            domain.allow="${{ secrets.ALLOW_DOMAIN }}" \
-            openweather.api_key="${{ secrets.OPENWEATHER_API_KEY }}" \
-            rakuten.app_id="${{ secrets.RAKUTEN_APP_ID }}" \
-            google.places_api_key="${{ secrets.GOOGLE_PLACES_API_KEY }}"
-          
-          # FunctionsとHostingをデプロイ
-          firebase deploy --only functions,hosting
+            gemini.api_key="$GEMINI_API_KEY" \
+            domain.allow="$ALLOW_DOMAIN" \
+            openweather.api_key="$OPENWEATHER_API_KEY" \
+            rakuten.app_id="$RAKUTEN_APP_ID" \
+            google.places_api_key="$GOOGLE_PLACES_API_KEY" \
+            --token "$FIREBASE_TOKEN"
+          firebase deploy --only functions --token "$FIREBASE_TOKEN"
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ALLOW_DOMAIN: ${{ secrets.ALLOW_DOMAIN }}
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
 
-      # サービスアカウントキーファイルの削除
-      - name: Cleanup Service Account Key File
-        if: always()
-        run: rm -f ${{ github.workspace }}/service-account.json
+      # Firebase Hostingのデプロイ
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CELEBRATION_PLANNER }}
+          channelId: live
+          projectId: celebration-planner
