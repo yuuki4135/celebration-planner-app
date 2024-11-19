@@ -34,10 +34,6 @@ jobs:
       - name: Install Functions Dependencies
         run: cd functions && npm ci
 
-      # サービスアカウントキーの設定
-      - name: Create SA Key File
-        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CELEBRATION_PLANNER }}' > ${{ github.workspace }}/sa-key.json
-
       # Firebase CLIのインストール
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
@@ -45,7 +41,7 @@ jobs:
       - name: Deploy to Firebase
         run: firebase deploy --only functions
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/sa-key.json
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
           PROJECT_ID: ${{secrets.FIREBASE_PROJECT_ID}}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ALLOW_DOMAIN: ${{ secrets.ALLOW_DOMAIN }}
