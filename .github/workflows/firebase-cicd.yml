@@ -38,19 +38,13 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      # Firebase Functionsのデプロイ
-      - name: Deploy to Firebase Functions
-        run: |
-          firebase functions:config:set \
-            gemini.api_key="$GEMINI_API_KEY" \
-            domain.allow="$ALLOW_DOMAIN" \
-            openweather.api_key="$OPENWEATHER_API_KEY" \
-            rakuten.app_id="$RAKUTEN_APP_ID" \
-            google.places_api_key="$GOOGLE_PLACES_API_KEY" \
-            --token "$FIREBASE_TOKEN"
-          firebase deploy --only functions --token "$FIREBASE_TOKEN"
+      - name: Deploy to Firebase
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only functions
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          PROJECT_ID: ${{secrets.FIREBASE_PROJECT_ID}}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ALLOW_DOMAIN: ${{ secrets.ALLOW_DOMAIN }}
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
