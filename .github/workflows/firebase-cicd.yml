@@ -19,10 +19,17 @@ jobs:
         run: npm ci && npm run build
       - name: test
         run: npm run test
-      - name: Deploy
+      - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CELEBRATION_PLANNER }}
           channelId: live
           projectId: celebration-planner
+          targets: hosting,functions
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ALLOW_DOMAIN: ${{ secrets.ALLOW_DOMAIN }}
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
