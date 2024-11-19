@@ -34,9 +34,8 @@ jobs:
       - name: Install Functions Dependencies
         run: cd functions && npm ci
 
-      # サービスアカウントキーの設定
       - name: Create SA Key File
-        run: echo ${{ secrets.GCLOUD_SERVICE_KEY }} | base64 -d > ${{ github.workspace }}/sa-key.json
+        run: echo "${{ secrets.GCLOUD_SERVICE_KEY }}" | base64 -d > ${{ github.workspace }}/sa-key.json
 
       # Firebase CLIのインストール
       - name: Install Firebase CLI
