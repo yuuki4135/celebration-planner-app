@@ -44,7 +44,7 @@ jobs:
       - name: Deploy to Firebase
         run: |
           export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/sa-key.json"
-          firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }} --no-lint
+          firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/sa-key.json
           PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
