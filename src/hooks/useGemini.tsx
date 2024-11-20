@@ -126,9 +126,7 @@ export const useGemini = () => {
       }
 
       const data: ApiResponse = await response.json();
-      if (formData.when === '') {
-        data.schedule = [];
-      }
+      if(formData.when != '') data.schedule = [];
       setResponse(data);
       setShowResults(true);
       return data;
