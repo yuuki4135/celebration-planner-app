@@ -1,17 +1,23 @@
 import * as React from 'react'
 import { Top } from './components/pages/top'
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Helmet } from 'react-helmet-async'
 
 export const App = () => {
   return (
-    <div>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Top/>} />
-          <Route path="*" element={<div>Not Found</div>} />
-        </Routes>
-      </BrowserRouter>
-    </div>
+    <>
+      <Helmet>
+        <title>お祝い事プランナー</title>
+      </Helmet>
+      <div>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Top/>} />
+            <Route path="*" element={<div>Not Found</div>} />
+          </Routes>
+        </BrowserRouter>
+      </div>
+    </>
   )
 }
 
