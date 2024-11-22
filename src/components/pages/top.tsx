@@ -208,7 +208,7 @@ export const Top: React.FC = () => {
         return;
       }
 
-      // 都道府県と市区町村が入力されている場合、関連する場所を検��
+      // 都道府県と市区町村が入力されている場合、関連する場所を検索
       if (data.prefecture && data.city) {
         await searchPlaces(data.prefecture, data.city, data.text);
       }
@@ -216,7 +216,7 @@ export const Top: React.FC = () => {
       console.error(error);
       toast({
         title: 'エラーが発生しました',
-        description: '予期せぬエ��ーが発生しました。しばらくしてから再度お試しください。',
+        description: '予期せぬエラーが発生しました。しばらくしてから再度お試しください。',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -249,7 +249,7 @@ export const Top: React.FC = () => {
                   <FormLabel>誰のためのお祝い？</FormLabel>
                   <Input
                     placeholder="例: 娘、息子、恋人"
-                    {...register("who", { required: "誰のため��お祝いか入力してください" })}
+                    {...register("who", { required: "誰のためのお祝いか入力してください" })}
                     size="lg"
                   />
                   <FormErrorMessage>{errors.who && errors.who.message}</FormErrorMessage>
