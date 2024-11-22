@@ -76,7 +76,7 @@ async function getWeatherForecast(date: string, prefecture: string, city: string
 async function gemini(prompt: string){
   // For text-only input, use the gemini-pro model
   const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash-8b",
+    model: "gemini-1.5-flash",
     generation_config: {"response_mime_type": "application/json"}
   });
   const result = await model.generateContent(prompt);

@@ -28,11 +28,11 @@ import {
   Select,
   FormErrorMessage
 } from '@chakra-ui/react';
-import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from '@chakra-ui/icons';
+import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon, ExternalLinkIcon } from '@chakra-ui/icons';
 import { useGemini } from '@/hooks/useGemini';
 import { createGoogleCalendarUrl, createYahooCalendarUrl } from '@/utils/calendar';
 import { PREFECTURES } from '@/constants/prefectures';
-import { ItemDetail, TimeSlot, RecommendedDate, EventDetail, FormInput } from '@/types/celebrationTypes';
+import { ItemDetail, EventDetail, FormInput } from '@/types/celebrationTypes';
 import { ItemDetailModal } from '@/components/modals/ItemDetailModal';
 import { EventDetailModal } from '@/components/modals/EventDetailModal';
 import { ReadyDetailModal } from '@/components/modals/ReadyDetailModal';
@@ -505,6 +505,16 @@ export const Top: React.FC = () => {
                                 <StarIcon color="yellow.400" />
                                 <Text>{place.rating} ({place.userRatingsTotal}件)</Text>
                               </HStack>
+                              <Button
+                                as="a"
+                                href={`https://www.google.com/maps/place/?q=place_id:${place.placeId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                rightIcon={<ExternalLinkIcon />}
+                                variant="outline"
+                              >
+                                地図を表示
+                              </Button>
                             </VStack>
                           </CardBody>
                         </Card>
