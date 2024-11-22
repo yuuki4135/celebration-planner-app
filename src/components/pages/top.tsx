@@ -36,6 +36,7 @@ import { ItemDetail, TimeSlot, RecommendedDate, EventDetail, FormInput } from '@
 import { ItemDetailModal } from '@/components/modals/ItemDetailModal';
 import { EventDetailModal } from '@/components/modals/EventDetailModal';
 import { ReadyDetailModal } from '@/components/modals/ReadyDetailModal';
+import { usePlace } from '@/hooks/usePlace';
 
 export const Top: React.FC = () => {
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormInput>();
@@ -191,8 +192,10 @@ export const Top: React.FC = () => {
     }
   };
 
+  const { searchPlaces, places, isLoading: isLoadingPlaces } = usePlace();
+
   const onSubmit: SubmitHandler<FormInput> = async (data) => {
-    try{
+    try {
       const response = await fetchCelebrationPlan(data);
       if (response.error) {
         toast({
@@ -202,12 +205,18 @@ export const Top: React.FC = () => {
           duration: 5000,
           isClosable: true,
         });
+        return;
+      }
+
+      // 都道府県と市区町村が入力されている場合、関連する場所を検��
+      if (data.prefecture && data.city) {
+        await searchPlaces(data.prefecture, data.city, data.text);
       }
     } catch (error) {
       console.error(error);
       toast({
         title: 'エラーが発生しました',
-        description: '予期せぬエラーが発生しました。しばらくしてから再度お試しください。',
+        description: '予期せぬエ��ーが発生しました。しばらくしてから再度お試しください。',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -240,7 +249,7 @@ export const Top: React.FC = () => {
                   <FormLabel>誰のためのお祝い？</FormLabel>
                   <Input
                     placeholder="例: 娘、息子、恋人"
-                    {...register("who", { required: "誰のためのお祝いか入力してください" })}
+                    {...register("who", { required: "誰のため��お祝いか入力してください" })}
                     size="lg"
                   />
                   <FormErrorMessage>{errors.who && errors.who.message}</FormErrorMessage>
@@ -467,6 +476,32 @@ export const Top: React.FC = () => {
                   </CardBody>
                 </Card>
               </SimpleGrid>
+
+              {places.length > 0 && (
+                <Card w="full" variant="outline" borderColor={borderColor}>
+                  <CardHeader>
+                    <Heading size="md">関連するお店</Heading>
+                  </CardHeader>
+                  <CardBody>
+                    <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+                      {places.map((place, index) => (
+                        <Card key={index} variant="outline">
+                          <CardBody>
+                            <VStack align="start" spacing={2}>
+                              <Heading size="sm">{place.name}</Heading>
+                              <Text fontSize="sm">{place.address}</Text>
+                              <HStack>
+                                <StarIcon color="yellow.400" />
+                                <Text>{place.rating} ({place.userRatingsTotal}件)</Text>
+                              </HStack>
+                            </VStack>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </SimpleGrid>
+                  </CardBody>
+                </Card>
+              )}
             </VStack>
           )}
         </Fade>
