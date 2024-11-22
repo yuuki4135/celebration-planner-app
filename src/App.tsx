@@ -2,8 +2,13 @@ import * as React from 'react'
 import { Top } from './components/pages/top'
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Helmet } from 'react-helmet-async'
+import { settingAnalytics } from './lib/firebase'
 
 export const App = () => {
+  React.useEffect(() => {
+    if(process.env.NODE_ENV === 'production') settingAnalytics()
+  }, [])
+
   return (
     <>
       <Helmet>
