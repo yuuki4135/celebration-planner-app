@@ -655,29 +655,35 @@ describe("関連イベントの詳細", () => {
       </MemoryRouter>
     );
 
-    // フォームに入力してプラン作成
-    await act(async () => {
-      const celebration = screen.getByPlaceholderText("例: 結婚式、誕生日、出産祝い");
-      const who = screen.getByPlaceholderText("例: 娘、息子、恋人");
-      const prefecture = screen.getByTestId("prefecture");
-      const city = screen.getByTestId("city");
-      await user.type(celebration, "誕生日");
-      await user.type(who, "娘");
-      await user.selectOptions(prefecture, "東京都");
-      await user.type(city, "渋谷区");
-      await user.click(screen.getByRole("button", { name: "プランを作成" }));
-    });
+    // フォームに入力
+    const celebration = screen.getByPlaceholderText("例: 結婚式、誕生日、出産祝い");
+    const who = screen.getByPlaceholderText("例: 娘、息子、恋人");
+    const prefecture = screen.getByTestId("prefecture");
+    const city = screen.getByTestId("city");
 
-    // 関連イベントの項目をクリック
-    await waitFor(async () => {
-      const eventItem = screen.getByText("バースデーパーティー");
-      await user.click(eventItem);
-    });
+    // 各フィールドに順番に入力
+    await user.type(celebration, "誕生日");
+    await user.type(who, "娘");
+    await user.selectOptions(prefecture, "東京都");
+    await user.type(city, "渋谷区");
 
-    // 周辺のお店を検索ボタンが表示されること
+    // プラン作成ボタンをクリック
+    await user.click(screen.getByRole("button", { name: "プランを作成" }));
+
+    // 結果が表示されるのを待つ
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "周辺のお店を検索" })).toBeInTheDocument();
+      expect(screen.getByText("バースデーパーティー")).toBeInTheDocument();
     });
+
+    // イベントをクリック
+    const eventItem = screen.getByText("バースデーパーティー");
+    await user.click(eventItem);
+
+    // 検索ボタンが表示されるのを待つ
+    await waitFor(() => {
+      const searchButton = screen.getByRole("button", { name: "周辺のお店を検索" });
+      expect(searchButton).toBeInTheDocument();
+    }, { timeout: 5000 });
   });
 
   it("周辺のお店を検索ボタンを押せば情報が表示されること", async () => {
@@ -718,8 +724,8 @@ describe("関連イベントの詳細", () => {
     // 検索結果が表示されることを確認
     await waitFor(() => {
       expect(mockSearchPlaces).toHaveBeenCalledWith("東京都", "渋谷区", "バースデーパーティー");
-      expect(screen.getByText("レストランABC")).toBeInTheDocument();
-      expect(screen.getByText("東京都渋谷区渋谷1-1-1")).toBeInTheDocument();
+      expect(screen.getByTestId('place-name-0')).toHaveTextContent('レストランABC');
+      expect(screen.getByTestId('place-address-0')).toHaveTextContent('東京都渋谷区渋谷1-1-1');
     });
   });
 });

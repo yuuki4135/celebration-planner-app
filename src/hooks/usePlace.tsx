@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-interface Place {
+export interface Place {  // export を追加
   name: string;
   address: string;
   rating: number;
@@ -33,7 +33,7 @@ interface SearchResult {
 }
 
 interface UsePlace {
-  searchPlaces: (prefecture: string, city: string, keyword: string) => Promise<void>;
+  searchPlaces: (prefecture: string, city: string, keyword: string) => Promise<SearchResult>;
   places: Place[];
   isLoading: boolean;
   error: string | null;
@@ -47,7 +47,7 @@ export const usePlace = (): UsePlace => {
   const [error, setError] = React.useState<string | null>(null);
   const [searchInfo, setSearchInfo] = React.useState<SearchResult['searchInfo'] | null>(null);
 
-  const searchPlaces = async (prefecture: string, city: string, keyword: string) => {
+  const searchPlaces = async (prefecture: string, city: string, keyword: string): Promise<SearchResult> => {
     setIsLoading(true);
     setError(null);
     try {
@@ -71,10 +71,12 @@ export const usePlace = (): UsePlace => {
       } else {
         throw new Error(result.error || '検索に失敗しました');
       }
+      return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
       setPlaces([]);
       setSearchInfo(null);
+      throw err;
     } finally {
       setIsLoading(false);
     }

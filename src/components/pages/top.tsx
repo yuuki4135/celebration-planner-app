@@ -36,7 +36,7 @@ import { ItemDetail, TimeSlot, RecommendedDate, EventDetail, FormInput } from '@
 import { ItemDetailModal } from '@/components/modals/ItemDetailModal';
 import { EventDetailModal } from '@/components/modals/EventDetailModal';
 import { ReadyDetailModal } from '@/components/modals/ReadyDetailModal';
-import { usePlace } from '@/hooks/usePlace';
+import { usePlace, Place } from '@/hooks/usePlace';
 
 export const Top: React.FC = () => {
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormInput>();
@@ -192,7 +192,8 @@ export const Top: React.FC = () => {
     }
   };
 
-  const { searchPlaces, places, isLoading: isLoadingPlaces } = usePlace();
+  const { searchPlaces, places, resetPlaces, isLoading: isLoadingPlaces } = usePlace();
+  const [mainPlaces, setMainPlaces] = React.useState<Place[]>([]); // 型を明示的に指定
 
   const onSubmit: SubmitHandler<FormInput> = async (data) => {
     try {
@@ -208,9 +209,15 @@ export const Top: React.FC = () => {
         return;
       }
 
+      setMainPlaces([]); // 検索結果をリセット
       // 都道府県と市区町村が入力されている場合、関連する場所を検索
       if (data.prefecture && data.city) {
-        await searchPlaces(data.prefecture, data.city, data.text);
+        try {
+          const searchResult = await searchPlaces(data.prefecture, data.city, data.text);
+          setMainPlaces(searchResult.places);
+        } catch (error) {
+          console.error('場所の検索に失敗しました:', error);
+        }
       }
     } catch (error) {
       console.error(error);
@@ -477,19 +484,23 @@ export const Top: React.FC = () => {
                 </Card>
               </SimpleGrid>
 
-              {places.length > 0 && (
+              {mainPlaces.length > 0 && (
                 <Card w="full" variant="outline" borderColor={borderColor}>
                   <CardHeader>
                     <Heading size="md">関連するお店</Heading>
                   </CardHeader>
                   <CardBody>
                     <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-                      {places.map((place, index) => (
+                      {mainPlaces.map((place, index) => (
                         <Card key={index} variant="outline">
                           <CardBody>
                             <VStack align="start" spacing={2}>
-                              <Heading size="sm">{place.name}</Heading>
-                              <Text fontSize="sm">{place.address}</Text>
+                              <Heading size="sm" data-testid={`place-name-${index}`}>
+                                {place.name}
+                              </Heading>
+                              <Text fontSize="sm" data-testid={`place-address-${index}`}>
+                                {place.address}
+                              </Text>
                               <HStack>
                                 <StarIcon color="yellow.400" />
                                 <Text>{place.rating} ({place.userRatingsTotal}件)</Text>
