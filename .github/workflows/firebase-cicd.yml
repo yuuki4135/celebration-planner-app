@@ -49,7 +49,7 @@ jobs:
       - name: Create SA Key File
         run: echo "${{ secrets.FIREBASE_SERVICE_KEY }}" | base64 -d > ${{ github.workspace }}/sa-key.json
 
-      - name: Create .env File
+      - name: Create functions .env File
         run: |
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > ${{ github.workspace }}/functions/.env
           echo "ALLOW_DOMAIN=${{ secrets.ALLOW_DOMAIN }}" >> ${{ github.workspace }}/functions/.env
@@ -59,11 +59,12 @@ jobs:
 
       - name: Deploy to Firebase
         run: |
-          export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/sa-key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/functions/sa-key.json"
+          cd functions
           firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
-          rm ${{ github.workspace }}/sa-key.json && rm ${{ github.workspace }}/functions/.env
+          rm ${{ github.workspace }}/functions/sa-key.json && rm ${{ github.workspace }}/functions/.env
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/sa-key.json
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/functions/sa-key.json
 
       # Firebase Hostingのデプロイ
       - name: Deploy to Firebase Hosting
