@@ -703,6 +703,7 @@ describe("関連イベントの詳細", () => {
       const who = screen.getByPlaceholderText("例: 娘、息子、恋人");
       const prefecture = screen.getByTestId("prefecture");
       const city = screen.getByTestId("city");
+      
       await user.type(celebration, "誕生日");
       await user.type(who, "娘");
       await user.selectOptions(prefecture, "東京都");
@@ -710,16 +711,17 @@ describe("関連イベントの詳細", () => {
       await user.click(screen.getByRole("button", { name: "プランを作成" }));
     });
 
-    // 関連イベントの項目をクリック
+    // 関連イベントの項目が表示されるのを待つ
     await waitFor(async () => {
       const eventItem = screen.getByText("バースデーパーティー");
       await user.click(eventItem);
     });
 
-    // 周辺のお店を検索ボタンをクリック
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: "周辺のお店を検索" }));
-    });
+    // モーダルとボタンが表示されるのを待つ
+    const searchButton = await screen.findByRole("button", { name: "周辺のお店を検索" });
+    
+    // ボタンをクリック
+    await user.click(searchButton);
 
     // 検索結果が表示されることを確認
     await waitFor(() => {
