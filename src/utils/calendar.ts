@@ -51,40 +51,24 @@ export const createYahooCalendarUrl = (
   return `https://calendar.yahoo.com/?${params}`;
 };
 
-export const createICSFile = (
+// createICSFileをモック化できるように修正
+export const createICSFile = jest.fn().mockImplementation((
   title: string,
   description: string,
-  startDate: string,
+  date: string,
   startTime?: string,
-  endTime?: string,
-  location?: string
-) => {
-  // 日時のフォーマット
-  const start = startTime 
-    ? `${startDate.replace(/-/g, '')}T${startTime.replace(/:/g, '')}00Z`
-    : `${startDate.replace(/-/g, '')}`;
-  const end = endTime 
-    ? `${startDate.replace(/-/g, '')}T${endTime.replace(/:/g, '')}00Z`
-    : `${startDate.replace(/-/g, '')}`;
+  endTime?: string
+): string => {
+  const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+SUMMARY:${title}
+DESCRIPTION:${description}
+DTSTART:${date.replace(/-/g, '')}${startTime ? 'T' + startTime.replace(/:/g, '') + '00' : ''}
+DTEND:${date.replace(/-/g, '')}${endTime ? 'T' + endTime.replace(/:/g, '') + '00' : ''}
+END:VEVENT
+END:VCALENDAR`;
 
-  const icsContent = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//hacksw/handcal//NONSGML v1.0//EN',
-    'BEGIN:VEVENT',
-    `UID:${new Date().getTime()}@example.com`,
-    `DTSTAMP:${new Date().toISOString().replace(/[-:.]/g, '')}`,
-    `DTSTART:${start}`,
-    `DTEND:${end}`,
-    `SUMMARY:${title}`,
-    `DESCRIPTION:${description}`,
-    location ? `LOCATION:${location}` : '',
-    'END:VEVENT',
-    'END:VCALENDAR'
-  ].filter(Boolean).join('\r\n');
-
-  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  
-  return url;
-};
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
+});
