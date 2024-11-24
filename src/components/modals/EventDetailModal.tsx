@@ -20,11 +20,11 @@ import {
   IconButton,
   Badge,
   Tooltip,
-  Center,
 } from '@chakra-ui/react';
 import { CalendarIcon, ExternalLinkIcon, SearchIcon } from '@chakra-ui/icons';
 import { RecommendedDate, EventDetail } from '@/types/celebrationTypes';
-import { createGoogleCalendarUrl, createYahooCalendarUrl } from '@/utils/calendar';
+import { createGoogleCalendarUrl, createYahooCalendarUrl, createICSFile } from '@/utils/calendar';
+import { AiOutlineGoogle, AiFillYahoo } from "react-icons/ai";
 import { usePlace } from '@/hooks/usePlace';
 
 interface EventDetailModalProps {
@@ -116,7 +116,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                             <Tooltip label="Googleカレンダーに追加">
                               <IconButton
                                 aria-label="Googleカレンダーに追加"
-                                icon={<CalendarIcon />}
+                                icon={<AiOutlineGoogle />}
                                 size="sm"
                                 colorScheme="blue"
                                 variant="ghost"
@@ -135,7 +135,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                             <Tooltip label="Yahooカレンダーに追加">
                               <IconButton
                                 aria-label="Yahooカレンダーに追加"
-                                icon={<CalendarIcon />}
+                                icon={<AiFillYahoo />}
                                 size="sm"
                                 colorScheme="purple"
                                 variant="ghost"
@@ -149,6 +149,24 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                                 )}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                              />
+                            </Tooltip>
+                            <Tooltip label="iCalendarファイルをダウンロード">
+                              <IconButton
+                                aria-label="iCalendarファイルをダウンロード"
+                                icon={<CalendarIcon />}
+                                size="sm"
+                                colorScheme="red"
+                                variant="ghost"
+                                as="a"
+                                download={`${selectedEvent || ''}.ics`}
+                                href={`data:text/calendar;charset=utf-8,${encodeURIComponent(createICSFile(
+                                  selectedEvent || '',
+                                  `${date.reason}\n${date.considerations}`,
+                                  date.date,
+                                  date.time_slots[0]?.start_time,
+                                  date.time_slots[0]?.end_time,
+                                ))}`}
                               />
                             </Tooltip>
                           </HStack>
