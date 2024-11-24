@@ -49,18 +49,21 @@ jobs:
       - name: Create SA Key File
         run: echo "${{ secrets.FIREBASE_SERVICE_KEY }}" | base64 -d > ${{ github.workspace }}/sa-key.json
 
+      - name: Create .env File
+        run: |
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > ${{ github.workspace }}/functions/.env
+          echo "ALLOW_DOMAIN=${{ secrets.ALLOW_DOMAIN }}" >> ${{ github.workspace }}/functions/.env
+          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" >> ${{ github.workspace }}/functions/.env
+          echo "RAKUTEN_APP_ID=${{ secrets.RAKUTEN_APP_ID }}" >> ${{ github.workspace }}/functions/.env
+          echo "GOOGLE_PLACES_API_KEY=${{ secrets.GOOGLE_PLACES_API_KEY }}" >> ${{ github.workspace }}/functions/.env
+
       - name: Deploy to Firebase
         run: |
           export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/sa-key.json"
           firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
+          rm ${{ github.workspace }}/sa-key.json && rm ${{ github.workspace }}/functions/.env
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/sa-key.json
-          PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          ALLOW_DOMAIN: ${{ secrets.ALLOW_DOMAIN }}
-          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
-          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
-          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
 
       # Firebase Hostingのデプロイ
       - name: Deploy to Firebase Hosting

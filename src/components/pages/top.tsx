@@ -29,8 +29,9 @@ import {
   FormErrorMessage
 } from '@chakra-ui/react';
 import { CheckCircleIcon, CalendarIcon, StarIcon, TimeIcon, ExternalLinkIcon } from '@chakra-ui/icons';
+import { AiOutlineGoogle, AiFillYahoo } from "react-icons/ai";
 import { useGemini } from '@/hooks/useGemini';
-import { createGoogleCalendarUrl, createYahooCalendarUrl } from '@/utils/calendar';
+import { createGoogleCalendarUrl, createYahooCalendarUrl, createICSFile } from '@/utils/calendar';
 import { PREFECTURES } from '@/constants/prefectures';
 import { ItemDetail, EventDetail, FormInput } from '@/types/celebrationTypes';
 import { ItemDetailModal } from '@/components/modals/ItemDetailModal';
@@ -57,7 +58,6 @@ export const Top: React.FC = () => {
     total_budget_estimate: string;
   } | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = React.useState(false);
-
   const [selectedEvent, setSelectedEvent] = React.useState<string | null>(null);
   const [eventDetails, setEventDetails] = React.useState<EventDetail | null>(null);
   const [isLoadingEventDetails, setIsLoadingEventDetails] = React.useState(false);
@@ -441,7 +441,7 @@ export const Top: React.FC = () => {
                                 <Tooltip label="Googleカレンダーに追加">
                                   <IconButton
                                     aria-label="Googleカレンダーに追加"
-                                    icon={<CalendarIcon />}
+                                    icon={<AiOutlineGoogle />}
                                     size="sm"
                                     colorScheme="blue"
                                     variant="ghost"
@@ -458,7 +458,7 @@ export const Top: React.FC = () => {
                                 <Tooltip label="Yahooカレンダーに追加">
                                   <IconButton
                                     aria-label="Yahooカレンダーに追加"
-                                    icon={<CalendarIcon />}
+                                    icon={<AiFillYahoo />}
                                     size="sm"
                                     colorScheme="purple"
                                     variant="ghost"
@@ -470,6 +470,22 @@ export const Top: React.FC = () => {
                                     )}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                  />
+                                </Tooltip>
+                                <Tooltip label="iCalendarファイルをダウンロード">
+                                  <IconButton
+                                    aria-label="iCalendarファイルをダウンロード"
+                                    icon={<CalendarIcon />}
+                                    size="sm"
+                                    colorScheme="red"
+                                    variant="ghost"
+                                    as="a"
+                                    href={createICSFile(
+                                      inputCelebration,
+                                      schedule.reason,
+                                      schedule.date
+                                    )}
+                                    download={`${inputCelebration}.ics`}
                                   />
                                 </Tooltip>
                               </HStack>
