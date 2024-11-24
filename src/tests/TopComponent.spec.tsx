@@ -843,5 +843,55 @@ describe("関連イベントの詳細", () => {
     expect(searchButton).toBeInTheDocument();
   }, 15000);
 
-  // 他のテストケースも同様に修正...
+  it("周辺のお店を検索ボタンを押せば情報が表示されること", async () => {
+    const user = userEvent.setup();
+    
+    renderWithChakra(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<Top />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    // フォームに入力してプラン作成
+    await act(async () => {
+      await user.type(screen.getByPlaceholderText("例: 結婚式、誕生日、出産祝い"), "誕生日");
+      await user.type(screen.getByPlaceholderText("例: 娘、息子、恋人"), "娘");
+      await user.selectOptions(screen.getByTestId("prefecture"), "東京都");
+      await user.type(screen.getByTestId("city"), "渋谷区");
+    });
+
+    // プラン作成ボタンをクリック
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: "プランを作成" }));
+    });
+
+    // イベントボタンが表示されるまで待機
+    const eventButton = await screen.findByText("バースデーパーティー", {}, { timeout: 10000 });
+    
+    // イベントボタンをクリック
+    await act(async () => {
+      await user.click(eventButton);
+    });
+
+    // 検索ボタンが表示されるまで待機
+    const searchButton = await screen.findByRole("button", { name: "周辺のお店を検索" }, { timeout: 10000 });
+    
+    // 検索ボタンをクリック
+    await act(async () => {
+      await user.click(searchButton);
+    });
+
+    // 検索結果が表示されるまで待機
+    await waitFor(() => {
+      expect(mockSearchPlaces).toHaveBeenCalledWith("東京都", "渋谷区", "バースデーパーティー");
+      expect(screen.getByTestId("place-name-0")).toHaveTextContent("レストランABC");
+      expect(screen.getByTestId("place-address-0")).toHaveTextContent("東京都渋谷区渋谷1-1-1");
+    }, { timeout: 10000 });
+  }, 30000); // テスト全体のタイムアウトを30秒に設定
+
+  // ... 他のテストケース
 });
+
+// 重複した describe ブロックを削除
