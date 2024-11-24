@@ -62,7 +62,7 @@ jobs:
           export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/sa-key.json"
           cd functions
           firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
-          rm ${{ github.workspace }}/functions/sa-key.json && rm ${{ github.workspace }}/functions/.env
+          rm ${{ github.workspace }}/sa-key.json && rm ${{ github.workspace }}/functions/.env
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/sa-key.json
 
