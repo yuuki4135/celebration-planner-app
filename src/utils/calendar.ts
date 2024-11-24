@@ -51,8 +51,7 @@ export const createYahooCalendarUrl = (
   return `https://calendar.yahoo.com/?${params}`;
 };
 
-// createICSFileをモック化できるように修正
-export const createICSFile = jest.fn().mockImplementation((
+export const createICSFile = ((
   title: string,
   description: string,
   date: string,
