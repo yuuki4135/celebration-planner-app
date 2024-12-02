@@ -210,7 +210,7 @@ export const AskCelebration = onRequest(async (request: Request, response: Respo
     const decoded = jsonReplace(result);
     const parsed = JSON.parse(decoded);
     
-    // 天気予報情報の追��（地域情報がある場合のみ）
+    // 天気予報情報の追加（地域情報がある場合のみ）
     if (Array.isArray(parsed.schedule) && weatherData.length > 0) {
       parsed.schedule = parsed.schedule.map((item: any) => {
         const weatherInfo = weatherData.find(w => w.date === item.date)?.forecast;
@@ -257,7 +257,7 @@ export const itemsDetail = onRequest(async (request: Request, response: Response
     const celebration = String(request.query.celebration) || '';
     const prompt = `
     あなたは日本のお祝い事の準備アドバイザーです。
-    ${celebration}の準備物として${text}に関する詳細情報を提供し��ください。
+    ${celebration}の準備物として${text}に関する詳細情報を提供してください。
     日本の文化や風習、運気なども考慮して提案してください。
 
     以下のJSON形式で返答してください：
@@ -366,7 +366,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
       : '';
 
     const prompt = `
-    あなたは日本のお祝い事の準備アドバ��ザーです。
+    あなたは日本のお祝い事の準備アドバイザーです。
     ${celebration}に関連するイベント「${eventName}」の詳細情報を提供してください。
 
     以下の期間で候補日を提案してください：
@@ -392,7 +392,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
                 "reason": "この時間帯を推奨する理由（混雑状況/気温/光の具合/慣習など）"
               }
             ],
-            "reason": "この日程を推奨する理由（季節/気候/意味/参加のしやすさ���ど）",
+            "reason": "この日程を推奨する理由（季節/気候/意味/参加のしやすさなど）",
             "is_holiday": boolean,
             "considerations": "気候や混雑状況、準備に必要な期間なども含めた考慮事項"
           }
@@ -441,7 +441,7 @@ export const eventDetail = onRequest(async (request: Request, response: Response
     }
 
     注意事項：
-    1. recommended_datesは���ず${startDate}から${endDate}までの期間で提案してください
+    1. recommended_datesは必ず${startDate}から${endDate}までの期間で提案してください
     2. 土日祝日を優先して提案してください（上記の候補日を参考に）
     3. 各候補日について、季節・天候・混雑状況なども含めた具体的な理由を記載してください
     4. 提案する日付は最低3つ以上としてください
